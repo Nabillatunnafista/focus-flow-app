@@ -8,9 +8,9 @@ class TaskModel {
   final String? categoryId;
   final String? categoryName;
   final DateTime? deadline;
-  final String? submission; // e.g. "classroom", "email"
+  final String? submission;
   TaskStatus status;
-  final String? tag; // e.g. "Rabu", "Senin"
+  final String? tag; 
 
   TaskModel({
     required this.id,
@@ -64,10 +64,8 @@ class TaskModel {
   }
 }
 
-// ──────────────────────────────────────
-// Category Model
-// ──────────────────────────────────────
 
+// Category Model
 class TaskCategory {
   final String id;
   final String name;
@@ -97,10 +95,8 @@ class TaskCategory {
   }
 }
 
-// ──────────────────────────────────────
-// Deadline / Today Deadline Model
-// ──────────────────────────────────────
 
+// Deadline / Today Deadline Model
 class DeadlineModel {
   final String id;
   final String title;
@@ -126,10 +122,6 @@ class DeadlineModel {
     );
   }
 }
-
-// ──────────────────────────────────────
-// Mock Data — remove when API is ready
-// ──────────────────────────────────────
 
 class MockData {
   static List<TaskCategory> get categories => [

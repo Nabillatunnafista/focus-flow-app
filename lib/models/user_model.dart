@@ -13,6 +13,7 @@ class UserModel {
     this.avatarUrl,
   });
 
+  // Fungsi untuk mengubah JSON dari Backend Go menjadi Object Flutter
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id']?.toString() ?? '',
@@ -22,42 +23,47 @@ class UserModel {
     );
   }
 
+  // Fungsi untuk mengubah Object Flutter menjadi JSON (jika perlu dikirim ke server)
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'email': email,
-    'name': name,
-    'avatar_url': avatarUrl,
-  };
+        'id': id,
+        'email': email,
+        'name': name,
+        'avatar_url': avatarUrl,
+      };
 }
 
-// ──────────────────────────────────────
-// Auth Request / Response DTOs
-// ──────────────────────────────────────
-
-/// POST /api/v1/auth/login
-/// Body: { "email": "...", "password": "..." }
+/// Request untuk Login
 class LoginRequest {
   final String email;
   final String password;
+
   const LoginRequest({required this.email, required this.password});
-  Map<String, dynamic> toJson() => {'email': email, 'password': password};
+
+  Map<String, dynamic> toJson() => {
+        'email': email,
+        'password': password,
+      };
 }
 
-/// POST /api/v1/auth/register
-/// Body: { "email": "...", "password": "...", "name": "..." }
+/// Request untuk Register
 class RegisterRequest {
   final String email;
   final String password;
   final String? name;
-  const RegisterRequest({required this.email, required this.password, this.name});
+
+  const RegisterRequest({
+    required this.email,
+    required this.password,
+    this.name,
+  });
+
   Map<String, dynamic> toJson() => {
-    'email': email,
-    'password': password,
-    if (name != null) 'name': name,
-  };
+        'email': email,
+        'password': password,
+        if (name != null) 'name': name,
+      };
 }
 
-/// Response: { "access_token": "...", "refresh_token": "...", "user": {...} }
 class AuthResponse {
   final String accessToken;
   final String? refreshToken;
@@ -71,7 +77,7 @@ class AuthResponse {
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
     return AuthResponse(
-      accessToken: json['access_token'] as String? ?? '',
+      accessToken: json['access_token'] as String? ?? json['token'] as String? ?? '',
       refreshToken: json['refresh_token'] as String?,
       user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
     );

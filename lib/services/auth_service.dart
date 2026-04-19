@@ -18,28 +18,22 @@ class AuthService extends ChangeNotifier {
 
   Dio get _dio => ApiClient.instance.dio;
 
-  // ── Mode Dummy untuk Testing UI ──────────────────────
-  // Ubah ke 'false' jika backend Golang sudah running
-  final bool _useMock = true; 
+  // Set false agar langsung konek ke Gin 
+  final bool _useMock = false; 
 
   Future<bool> tryAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(StorageKeys.accessToken);
     if (token == null || token.isEmpty) return false;
 
-    if (_useMock) {
-      _currentUser = UserModel(id: '1', email: 'user@test.com', name: 'Fista');
-      notifyListeners();
-      return true;
-    }
-
     try {
+      // Mengambil data user yang sedang login
       final resp = await _dio.get(ApiEndpoints.me);
       _currentUser = UserModel.fromJson(resp.data as Map<String, dynamic>);
       notifyListeners();
       return true;
     } catch (_) {
-      await _clearStorage();
+      // Jika token expired atau server mati, jangan paksa login
       return false;
     }
   }
@@ -48,19 +42,12 @@ class AuthService extends ChangeNotifier {
     _setLoading(true);
     _error = null;
 
-    if (_useMock) {
-      await Future.delayed(const Duration(seconds: 2)); // simulasi loading
-      _currentUser = UserModel(id: '1', email: email, name: 'Fista');
-      notifyListeners();
-      _setLoading(false);
-      return null;
-    }
-
     try {
       final resp = await _dio.post(
         ApiEndpoints.login,
         data: LoginRequest(email: email, password: password).toJson(),
       );
+      
       final auth = AuthResponse.fromJson(resp.data as Map<String, dynamic>);
       await _persistTokens(auth);
       _currentUser = auth.user;
@@ -77,15 +64,6 @@ class AuthService extends ChangeNotifier {
   Future<String?> register(String email, String password, {String? name}) async {
     _setLoading(true);
     _error = null;
-
-    // ── LOGIKA MOCK (AGAR BISA MASUK DASHBOARDTanpa Server) ──
-    if (_useMock) {
-      await Future.delayed(const Duration(seconds: 2)); 
-      _currentUser = UserModel(id: '1', email: email, name: name ?? 'User Baru');
-      notifyListeners();
-      _setLoading(false);
-      return null; // Mengembalikan null dianggap sukses
-    }
 
     try {
       final resp = await _dio.post(
@@ -119,31 +97,19 @@ class AuthService extends ChangeNotifier {
   Future<void> _persistTokens(AuthResponse auth) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(StorageKeys.accessToken, auth.accessToken);
-    if (auth.refreshToken != null) {
-      await prefs.setString(StorageKeys.refreshToken, auth.refreshToken!);
-    }
     await prefs.setString(StorageKeys.userId, auth.user.id);
   }
 
   Future<void> _clearStorage() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(StorageKeys.accessToken);
-    await prefs.remove(StorageKeys.refreshToken);
     await prefs.remove(StorageKeys.userId);
   }
 
   String _parseError(DioException e) {
     final data = e.response?.data;
-    if (data is Map && data.containsKey('message')) {
-      return data['message'].toString();
-    }
-    if (e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return 'Koneksi timeout, coba lagi.';
-    }
-    if (e.type == DioExceptionType.connectionError) {
-      return 'Tidak dapat terhubung ke server.';
-    }
-    return 'Terjadi kesalahan. Silakan coba lagi.';
+    if (data is Map && data.containsKey('message')) return data['message'].toString();
+    if (e.type == DioExceptionType.connectionError) return 'Server Gin tidak terjangkau. Cek IP!';
+    return 'Terjadi kesalahan sistem.';
   }
 }
