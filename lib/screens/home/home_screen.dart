@@ -213,6 +213,7 @@ class _AddTaskSheet extends StatefulWidget {
 class _AddTaskSheetState extends State<_AddTaskSheet> {
   final _ctrl = TextEditingController();
   DateTime? _selectedDate;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -230,6 +231,52 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
 
     if (picked != null) {
       setState(() => _selectedDate = picked);
+    }
+  }
+
+  Future<void> _submit(TaskService service) async {
+    if (_ctrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Nama tugas wajib diisi")),
+      );
+      return;
+    }
+
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Deadline wajib dipilih")),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await service.addTask(
+        title: _ctrl.text.trim(),
+        deadline: _selectedDate,
+      );
+      await service.loadDashboard();
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tugas berhasil ditambahkan"),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Gagal menambah tugas"),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -254,12 +301,15 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
           // TITLE
           const Text(
             "Tambah Tugas",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
 
           const SizedBox(height: 16),
 
-          // INPUT NAMA
+          // INPUT
           TextField(
             controller: _ctrl,
             decoration: const InputDecoration(
@@ -270,7 +320,7 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
 
           const SizedBox(height: 16),
 
-          // DEADLINE PICKER
+          // DATE PICKER
           Row(
             children: [
               Expanded(
@@ -284,59 +334,28 @@ class _AddTaskSheetState extends State<_AddTaskSheet> {
               IconButton(
                 icon: const Icon(Icons.calendar_today),
                 onPressed: _pickDate,
-              )
+              ),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // BUTTON SIMPAN
+          // BUTTON
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () async {
-                // 🔥 VALIDASI NAMA
-                if (_ctrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Nama tugas wajib diisi"),
-                    ),
-                  );
-                  return;
-                }
-
-                // 🔥 VALIDASI DEADLINE
-                if (_selectedDate == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Deadline wajib dipilih"),
-                    ),
-                  );
-                  return;
-                }
-
-                try {
-                  await service.addTask(
-                    title: _ctrl.text.trim(),
-                    deadline: _selectedDate,
-                  );
-
-                  Navigator.pop(context);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Tugas berhasil ditambahkan"),
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Gagal menambah tugas"),
-                    ),
-                  );
-                }
-              },
-              child: const Text("Simpan"),
+              onPressed:
+                  _isSubmitting ? null : () => _submit(service),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text("Simpan"),
             ),
           ),
         ],

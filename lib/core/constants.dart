@@ -11,10 +11,11 @@ class AppRoutes {
 
 class ApiEndpoints {
   ApiEndpoints._();
-  static const String baseUrl = 'http://192.168.1.XX:8080/api'; // Ganti IP 
+  static const String baseUrl = 'http://localhost:8080/api'; // Ganti IP 
   static const String login    = '/login';
   static const String register = '/register';
   static const String me       = '/me';
+
   static const String tasks    = '/matkul'; 
   static const String taskDone = '/matkul/:id/done';
   static const String deadlines = '/deadlines';

@@ -1,5 +1,7 @@
+// lib/services/task_service.dart
+
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../models/task_model.dart';
@@ -18,13 +20,14 @@ class TaskService extends ChangeNotifier {
 
   Dio get _dio => ApiClient.instance.dio;
 
+  // ================= LOAD DASHBOARD =================
   Future<void> loadDashboard({bool useMock = false}) async {
     _setLoading(true);
     _error = null;
 
     try {
       await Future.wait([
-        _fetchCategories(),
+        _fetchTasks(),
         _fetchTodayDeadline(),
       ]);
     } catch (e) {
@@ -34,11 +37,13 @@ class TaskService extends ChangeNotifier {
     _setLoading(false);
   }
 
-  Future<void> _fetchCategories() async {
+  // ================= FETCH TASK =================
+  Future<void> _fetchTasks() async {
     try {
       final resp = await _dio.get(ApiEndpoints.tasks);
 
       final data = resp.data;
+
       List listData = [];
 
       if (data is List) {
@@ -47,19 +52,34 @@ class TaskService extends ChangeNotifier {
         listData = data['data'];
       }
 
-      _categories =
-          listData.map((e) => TaskCategory.fromJson(e)).toList();
+      // 🔥 MAP KE TASKMODEL
+      final tasks = listData
+          .map((e) => TaskModel.fromJson(e))
+          .toList();
+
+      // 🔥 BACKEND FLAT → BUNGKUS JADI 1 CATEGORY
+      _categories = [
+        TaskCategory(
+          id: "1",
+          name: "Tugas Saya",
+          tasks: tasks,
+          colorTag: "Hari Ini",
+        )
+      ];
 
       notifyListeners();
     } catch (e) {
-      _error = 'Gagal ambil data';
+      debugPrint("FETCH ERROR: $e");
+      _categories = [];
       notifyListeners();
     }
   }
 
+  // ================= DEADLINE =================
   Future<void> _fetchTodayDeadline() async {
     try {
       final resp = await _dio.get(ApiEndpoints.deadlines);
+
       final data = resp.data;
 
       List listData = [];
@@ -75,7 +95,9 @@ class TaskService extends ChangeNotifier {
       }
 
       notifyListeners();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("DEADLINE ERROR: $e");
+    }
   }
 
   void markDeadlineDone() {
@@ -85,8 +107,48 @@ class TaskService extends ChangeNotifier {
     }
   }
 
+  // ================= ADD TASK =================
+  Future<void> addTask({
+    required String title,
+    DateTime? deadline,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.tasks,
+        data: {
+          "name": title, // 🔥 WAJIB (bukan title)
+          "code": "GEN101",
+          "semester": deadline != null
+              ? deadline.year.toString()
+              : "4",
+        },
+      );
+
+      // 🔥 REFRESH DATA
+      await loadDashboard();
+    } catch (e) {
+      _error = "Gagal tambah task";
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ================= DELETE =================
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _dio.delete("${ApiEndpoints.tasks}/$taskId");
+
+      await loadDashboard();
+    } catch (e) {
+      _error = "Gagal hapus tugas";
+      notifyListeners();
+    }
+  }
+
+  // ================= TOGGLE =================
   Future<void> toggleTask(String categoryId, String taskId) async {
-    final catIdx = _categories.indexWhere((c) => c.id == categoryId);
+    final catIdx =
+        _categories.indexWhere((c) => c.id == categoryId);
     if (catIdx == -1) return;
 
     final taskIdx =
@@ -98,65 +160,29 @@ class TaskService extends ChangeNotifier {
     final newStatus =
         task.isDone ? TaskStatus.pending : TaskStatus.done;
 
+    // 🔥 OPTIMISTIC UPDATE
     _categories[catIdx].tasks[taskIdx] =
         task.copyWith(status: newStatus);
+
     notifyListeners();
 
     try {
       await _dio.patch(
         ApiEndpoints.taskDone.replaceAll(':id', taskId),
         data: {
-          'status': newStatus == TaskStatus.done ? 'done' : 'pending',
+          "is_done": newStatus == TaskStatus.done,
         },
       );
-    } catch (_) {
+    } catch (e) {
+      // 🔥 ROLLBACK
       _categories[catIdx].tasks[taskIdx] = task;
       notifyListeners();
     }
   }
 
-  Future<void> addTask({
-    required String title,
-    String? categoryId,
-    DateTime? deadline,
-  }) async {
-    _setLoading(true);
-
-    try {
-      await _dio.post(
-        ApiEndpoints.tasks,
-        data: {
-          'title': title,
-          if (categoryId != null) 'category_id': categoryId,
-          if (deadline != null)
-            'deadline': deadline.toIso8601String(),
-        },
-      );
-
-      await loadDashboard();
-    } catch (e) {
-      _error = 'Gagal tambah task';
-      notifyListeners();
-    }
-
-    _setLoading(false);
-  }
-
+  // ================= HELPER =================
   void _setLoading(bool v) {
     _isLoading = v;
     notifyListeners();
   }
-
-  Future<void> deleteTask(String taskId) async {
-  try {
-    await _dio.delete(
-      "${ApiEndpoints.tasks}/$taskId",
-    );
-
-    await loadDashboard(); // refresh data
-  } catch (e) {
-    _error = "Gagal hapus tugas";
-    notifyListeners();
-  }
-}
 }
