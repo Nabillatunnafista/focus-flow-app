@@ -1,8 +1,11 @@
 // lib/widgets/task_card.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+
 import '../core/theme.dart';
 import '../models/task_model.dart';
+import '../services/task_service.dart';
 
 class TaskCategoryCard extends StatefulWidget {
   final TaskCategory category;
@@ -47,9 +50,10 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
         child: ExpansionTile(
           initiallyExpanded: widget.initiallyExpanded,
           onExpansionChanged: (v) => setState(() => _expanded = v),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.only(bottom: 12),
-          leading: null,
+
           title: Row(
             children: [
               Text(
@@ -66,6 +70,7 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               ],
             ],
           ),
+
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -79,22 +84,26 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               ),
               const SizedBox(width: 4),
               Icon(
-                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                _expanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
                 color: AppColors.primary,
               ),
             ],
           ),
-          // If has items, show checkboxes; else show nothing
+
           children: hasItems
               ? cat.tasks
-                    .map((task) => _TaskRow(
-                          task: task,
-                          onToggle: () => widget.onToggleTask(task.id),
-                        ))
-                    .toList()
+                  .map((task) => _TaskRow(
+                        task: task,
+                        onToggle: () =>
+                            widget.onToggleTask(task.id),
+                      ))
+                  .toList()
               : [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 4),
                     child: Text(
                       'Tidak ada tugas',
                       style: GoogleFonts.poppins(
@@ -110,13 +119,20 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
   }
 }
 
+// ================= TASK ROW =================
 class _TaskRow extends StatelessWidget {
   final TaskModel task;
   final VoidCallback onToggle;
-  const _TaskRow({required this.task, required this.onToggle});
+
+  const _TaskRow({
+    required this.task,
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final service = context.read<TaskService>();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Row(
@@ -124,18 +140,67 @@ class _TaskRow extends StatelessWidget {
           Checkbox(
             value: task.isDone,
             onChanged: (_) => onToggle(),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
           ),
+
           Expanded(
             child: Text(
               task.title,
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: task.isDone ? AppColors.textGrey : AppColors.textDark,
-                decoration:
-                    task.isDone ? TextDecoration.lineThrough : TextDecoration.none,
+                color: task.isDone
+                    ? AppColors.textGrey
+                    : AppColors.textDark,
+                decoration: task.isDone
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
               ),
             ),
+          ),
+
+          // 🔥 DELETE BUTTON
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () async {
+              final confirm = await showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("Hapus Tugas"),
+                  content: const Text(
+                      "Yakin ingin menghapus tugas ini?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(context, false),
+                      child: const Text("Batal"),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(context, true),
+                      child: const Text("Hapus"),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  await service.deleteTask(task.id);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text("Tugas berhasil dihapus")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text("Gagal hapus tugas")),
+                  );
+                }
+              }
+            },
           ),
         ],
       ),
@@ -143,14 +208,17 @@ class _TaskRow extends StatelessWidget {
   }
 }
 
+// ================= TAG =================
 class _TagChip extends StatelessWidget {
   final String label;
+
   const _TagChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
         color: AppColors.chipWed.withOpacity(0.2),
         borderRadius: BorderRadius.circular(20),
