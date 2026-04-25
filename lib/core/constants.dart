@@ -12,17 +12,18 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   /// Base URL — ganti dengan URL Backend Golang Anda
-  static const String baseUrl  = 'http://localhost:8080/api/v1';
+  static const String baseUrl  = 'http://localhost:8080/api';
 
   // Auth
-  static const String login    = '/auth/login';
-  static const String register = '/auth/register';
-  static const String me       = '/auth/me';
+  static const String login    = '/login';
+  static const String register = '/register';
+  static const String me       = '/me';
 
   // Tasks
-  static const String tasks    = '/tasks';          // GET (list), POST (create)
-  static const String taskById = '/tasks/:id';      // GET, PUT, DELETE
-  static const String taskDone = '/tasks/:id/done'; // PATCH
+  static const String tasks    = '/deadlines';          // GET (list), POST (create)
+  static const String taskById = '/deadlines/:id';      // GET, PUT, DELETE
+  static const String taskDone = '/deadlines/:id/done'; // PATCH
+  static const String matkul   = '/matkul';
 
   // Deadlines
   static const String deadlines = '/deadlines/today'; // GET

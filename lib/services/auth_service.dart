@@ -20,7 +20,7 @@ class AuthService extends ChangeNotifier {
 
   // ── Mode Dummy untuk Testing UI ──────────────────────
   // Ubah ke 'false' jika backend Golang sudah running
-  final bool _useMock = true; 
+  final bool _useMock = false; 
 
   Future<bool> tryAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
@@ -61,6 +61,8 @@ class AuthService extends ChangeNotifier {
         ApiEndpoints.login,
         data: LoginRequest(email: email, password: password).toJson(),
       );
+      print("=== LOGIN RESPONSE ===");
+print(resp.data);
       final auth = AuthResponse.fromJson(resp.data as Map<String, dynamic>);
       await _persistTokens(auth);
       _currentUser = auth.user;

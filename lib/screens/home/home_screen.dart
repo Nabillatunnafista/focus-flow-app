@@ -24,7 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TaskService>().loadDashboard(useMock: true);
+      context.read<TaskService>().loadDashboard(useMock: false);
     });
   }
 

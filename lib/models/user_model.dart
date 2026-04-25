@@ -69,11 +69,13 @@ class AuthResponse {
     required this.user,
   });
 
-  factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    return AuthResponse(
-      accessToken: json['access_token'] as String? ?? '',
-      refreshToken: json['refresh_token'] as String?,
-      user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
-    );
-  }
+factory AuthResponse.fromJson(Map<String, dynamic> json) {
+  final data = json['data'] as Map<String, dynamic>;
+
+  return AuthResponse(
+    accessToken: data['access_token'] as String? ?? '',
+    refreshToken: data['refresh_token'] as String?,
+    user: UserModel.fromJson(data['user'] as Map<String, dynamic>),
+  );
+}
 }
