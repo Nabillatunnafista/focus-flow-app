@@ -1,10 +1,15 @@
 // lib/screens/home/home_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/theme.dart';
+import '../../models/task_model.dart';
 import '../../services/task_service.dart';
+import '../../widgets/bottom_nav.dart';
+import '../../widgets/task_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,7 +19,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-    @override
+  int _navIndex = 0;
+
+  @override
   void initState() {
     super.initState();
 
@@ -25,326 +32,270 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final service = context.watch<TaskService>();
+    final taskService = context.watch<TaskService>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: service.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : service.categories.isEmpty
-                ? _buildEmpty()
-                : _buildBody(service),
+        bottom: false,
+        child: taskService.isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                ),
+              )
+            : _buildBody(taskService),
       ),
-
-      // ================= FAB =================
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTaskSheet,
-        child: const Icon(Icons.add),
-      ),
-
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerDocked,
-
-      // ================= BOTTOM NAV =================
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              Icon(Icons.home),
-              Icon(Icons.list),
-              SizedBox(width: 40),
-              Icon(Icons.calendar_today),
-              Icon(Icons.person),
-            ],
-          ),
-        ),
+      bottomNavigationBar: FocusFlowBottomNav(
+        currentIndex: _navIndex,
+        onTap: (i) => setState(() => _navIndex = i),
+        onFabPressed: _showAddTaskSheet,
       ),
     );
   }
 
-  // ================= EMPTY STATE =================
-  Widget _buildEmpty() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            "Belum ada folder",
-            style: TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _showAddFolderDialog,
-            child: const Text("Tambah Folder"),
-          )
-        ],
-      ),
-    );
-  }
-
-  // ================= BODY =================
-  Widget _buildBody(TaskService service) {
+  Widget _buildBody(TaskService taskService) {
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildBanner()),
-        SliverToBoxAdapter(child: _buildDeadline(service)),
-        SliverToBoxAdapter(child: _buildSectionTitle()),
-        _buildFolderList(service),
+        SliverToBoxAdapter(child: _Header()),
+        SliverToBoxAdapter(child: _InboxBanner()),
+
+        // DEADLINE
+        SliverToBoxAdapter(
+          child: _SectionTitle(title: 'Deadline Hari Ini'),
+        ),
+
+        if (taskService.todayDeadline != null)
+          SliverToBoxAdapter(
+            child: _DeadlineCard(
+              deadline: taskService.todayDeadline!,
+              onDone: taskService.markDeadlineDone,
+            ),
+          ),
+
+        // LIST FOLDER
+        SliverToBoxAdapter(
+          child: _SectionTitle(
+            title: 'Daftar Folder',
+            trailing: GestureDetector(
+              onTap: _showAddTaskSheet,
+              child: const Icon(
+                Icons.add,
+                color: AppColors.primary,
+                size: 26,
+              ),
+            ),
+          ),
+        ),
+
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final cat = taskService.categories[index];
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TaskCategoryCard(
+                  category: cat,
+                  initiallyExpanded: index < 2,
+                ),
+              );
+            },
+            childCount: taskService.categories.length,
+          ),
+        ),
+
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
 
-  // ================= HEADER =================
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text(
-            "Kotak masuk",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          Icon(Icons.notifications_none),
-        ],
-      ),
-    );
-  }
-
-  // ================= BANNER =================
-  Widget _buildBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.purple,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Text(
-        "Inspirasi tiba-tiba, tugas bisa dicatat di sini.",
-        style: TextStyle(color: Colors.white),
-      ),
-    );
-  }
-
-  // ================= DEADLINE =================
-  Widget _buildDeadline(TaskService service) {
-    final d = service.todayDeadline;
-
-    if (d == null) return const SizedBox();
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: ListTile(
-        title: Text(d.title),
-        subtitle: Text(
-          DateFormat("dd MMM yyyy").format(d.deadline),
-        ),
-        trailing: ElevatedButton(
-          onPressed: service.markDeadlineDone,
-          child: const Text("Selesai"),
-        ),
-      ),
-    );
-  }
-
-  // ================= SECTION TITLE =================
-  Widget _buildSectionTitle() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            "Daftar Pelajaran",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddFolderDialog,
-          )
-        ],
-      ),
-    );
-  }
-
-  // ================= FOLDER LIST =================
-  Widget _buildFolderList(TaskService service) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final cat = service.categories[index];
-
-          return Container(
-            margin: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 6),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(cat.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold)),
-                    Text("${cat.tasks.length}")
-                  ],
-                ),
-
-                const SizedBox(height: 8),
-
-                // 🔥 CHIP 1 BARIS
-                if (cat.colorTag != null)
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade100,
-                            borderRadius:
-                                BorderRadius.circular(20),
-                          ),
-                          child: Text("#${cat.colorTag}"),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-        childCount: service.categories.length,
-      ),
-    );
-  }
-
   // ================= ADD FOLDER =================
-  void _showAddFolderDialog() {
-    final ctrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Tambah Folder"),
-        content: TextField(
-          controller: ctrl,
-          decoration:
-              const InputDecoration(hintText: "Nama folder"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal"),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (ctrl.text.isEmpty) return;
-
-              await context
-                  .read<TaskService>()
-                  .addFolder(name: ctrl.text);
-
-              Navigator.pop(context);
-            },
-            child: const Text("OK"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ================= ADD TASK =================
   void _showAddTaskSheet() {
-    final service = context.read<TaskService>();
-
-    if (service.categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Buat folder dulu")),
-      );
-      return;
-    }
-
-    final ctrl = TextEditingController();
-    String? selected;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom:
-                  MediaQuery.of(context).viewInsets.bottom + 16,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _AddTaskSheet(),
+    );
+  }
+}
+
+// ================= HEADER =================
+class _Header extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Kotak masuk',
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800,
+              fontSize: 24,
+              color: AppColors.primary,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text("Tambah Tugas"),
+          ),
+          const Icon(Icons.notifications_outlined,
+              color: AppColors.primary, size: 28),
+        ],
+      ),
+    );
+  }
+}
 
-                TextField(
-                  controller: ctrl,
-                  decoration:
-                      const InputDecoration(hintText: "Task"),
-                ),
+// ================= BANNER =================
+class _InboxBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.secondary,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        'Inspirasi tiba-tiba, tugas bisa dicatat di sini.',
+        style: GoogleFonts.poppins(color: Colors.white),
+      ),
+    );
+  }
+}
 
-                DropdownButton<String>(
-                  hint: const Text("Pilih Folder"),
-                  value: selected,
-                  items: service.categories
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.id,
-                          child: Text(e.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() => selected = val);
-                  },
-                ),
+// ================= TITLE =================
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  final Widget? trailing;
 
-                ElevatedButton(
-                  onPressed: () {
-                    if (selected == null) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(
-                        const SnackBar(
-                            content: Text("Pilih folder")),
-                      );
-                      return;
-                    }
+  const _SectionTitle({required this.title, this.trailing});
 
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Simpan"),
-                )
-              ],
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
             ),
-          );
-        },
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+// ================= DEADLINE =================
+class _DeadlineCard extends StatelessWidget {
+  final DeadlineModel deadline;
+  final VoidCallback onDone;
+
+  const _DeadlineCard({
+    required this.deadline,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(deadline.title),
+      subtitle: Text(
+        DateFormat("dd MMM yyyy").format(deadline.deadline),
+      ),
+      trailing: ElevatedButton(
+        onPressed: deadline.isDone ? null : onDone,
+        child: Text(deadline.isDone ? "✓" : "Selesai"),
+      ),
+    );
+  }
+}
+
+// ================= ADD SHEET =================
+class _AddTaskSheet extends StatefulWidget {
+  const _AddTaskSheet();
+
+  @override
+  State<_AddTaskSheet> createState() =>
+      _AddTaskSheetState();
+}
+
+class _AddTaskSheetState extends State<_AddTaskSheet> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<TaskService>();
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            "Tambah Folder",
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctrl,
+            decoration: const InputDecoration(
+              hintText: "Nama folder",
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                if (_ctrl.text.trim().isEmpty) return;
+
+                await service.addTask(
+                  title: _ctrl.text.trim(),
+                );
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text("Folder berhasil ditambahkan"),
+                  ),
+                );
+              },
+              child: const Text("Simpan"),
+            ),
+          ),
+        ],
       ),
     );
   }

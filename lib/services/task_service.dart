@@ -20,30 +20,29 @@ class TaskService extends ChangeNotifier {
 
   Dio get _dio => ApiClient.instance.dio;
 
-  // ================= LOAD =================
-  Future<void> loadDashboard() async {
+  // ================= LOAD DASHBOARD =================
+  Future<void> loadDashboard({bool useMock = false}) async {
     _setLoading(true);
     _error = null;
 
     try {
       await Future.wait([
-        _fetchCategories(),
-        _fetchDeadline(),
+        _fetchMatkul(), // 🔥 FIX
+        _fetchTodayDeadline(),
       ]);
     } catch (e) {
-      _error = 'Gagal load: $e';
+      _error = 'Gagal memuat data: $e';
     }
 
     _setLoading(false);
   }
 
-  // ================= FETCH FOLDER =================
-  Future<void> _fetchCategories() async {
+  // ================= FETCH MATKUL =================
+  Future<void> _fetchMatkul() async {
     try {
-      final resp = await _dio.get(ApiEndpoints.tasks);
+      final resp = await _dio.get(ApiEndpoints.tasks); // /matkul
 
       final data = resp.data;
-
       List listData = [];
 
       if (data is List) {
@@ -52,30 +51,30 @@ class TaskService extends ChangeNotifier {
         listData = data['data'];
       }
 
+      // 🔥 MAP MATKUL → CATEGORY
       _categories = listData.map((e) {
         return TaskCategory(
           id: e['id'].toString(),
           name: e['name'] ?? '',
-          tasks: [],
-          colorTag: e['code'],
+          tasks: [], // 🔥 kosong (karena backend belum ada task)
+          colorTag: e['code'] ?? '',
         );
       }).toList();
 
       notifyListeners();
     } catch (e) {
-      debugPrint("FETCH ERROR: $e");
+      debugPrint("FETCH MATKUL ERROR: $e");
       _categories = [];
       notifyListeners();
     }
   }
 
   // ================= DEADLINE =================
-  Future<void> _fetchDeadline() async {
+  Future<void> _fetchTodayDeadline() async {
     try {
       final resp = await _dio.get(ApiEndpoints.deadlines);
 
       final data = resp.data;
-
       List listData = [];
 
       if (data is List) {
@@ -94,32 +93,42 @@ class TaskService extends ChangeNotifier {
     }
   }
 
-  // ================= ADD FOLDER =================
-  Future<void> addFolder({
-    required String name,
-    String? code,
-  }) async {
-    try {
-      await _dio.post(
-        ApiEndpoints.tasks,
-        data: {
-          "name": name,
-          "code": code ?? "GEN101",
-          "semester": "4",
-        },
-      );
-
-      await loadDashboard(); // 🔥 refresh UI
-    } catch (e) {
-      _error = "Gagal tambah folder";
+  void markDeadlineDone() {
+    if (_todayDeadline != null) {
+      _todayDeadline!.isDone = true;
       notifyListeners();
     }
   }
 
-  // ================= DELETE FOLDER =================
-  Future<void> deleteFolder(String id) async {
+  // ================= ADD MATKUL =================
+  Future<void> addTask({
+    required String title,
+    DateTime? deadline,
+  }) async {
     try {
-      await _dio.delete("${ApiEndpoints.tasks}/$id");
+      await _dio.post(
+        ApiEndpoints.tasks, // /matkul
+        data: {
+          "name": title,
+          "code": "GEN101",
+          "semester": deadline != null
+              ? deadline.year.toString()
+              : "4",
+        },
+      );
+
+      await loadDashboard();
+    } catch (e) {
+      _error = "Gagal tambah folder";
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ================= DELETE MATKUL =================
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _dio.delete("${ApiEndpoints.tasks}/$taskId");
 
       await loadDashboard();
     } catch (e) {
@@ -128,15 +137,12 @@ class TaskService extends ChangeNotifier {
     }
   }
 
-  // ================= DEADLINE DONE =================
-  void markDeadlineDone() {
-    if (_todayDeadline != null) {
-      _todayDeadline!.isDone = true;
-      notifyListeners();
-    }
+  // ================= DISABLED =================
+  Future<void> toggleTask(String categoryId, String taskId) async {
+    // 🔥 DISABLE (backend belum support)
+    debugPrint("Toggle disabled: backend belum support task");
   }
 
-  // ================= HELPER =================
   void _setLoading(bool v) {
     _isLoading = v;
     notifyListeners();

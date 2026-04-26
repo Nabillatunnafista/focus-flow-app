@@ -10,13 +10,11 @@ import '../services/task_service.dart';
 
 class TaskCategoryCard extends StatefulWidget {
   final TaskCategory category;
-  final void Function(String taskId) onToggleTask;
   final bool initiallyExpanded;
 
   const TaskCategoryCard({
     super.key,
     required this.category,
-    required this.onToggleTask,
     this.initiallyExpanded = false,
   });
 
@@ -36,28 +34,34 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
   @override
   Widget build(BuildContext context) {
     final cat = widget.category;
-    final count = cat.tasks.length;
-    final hasTag = cat.colorTag != null;
-    final hasItems = cat.tasks.isNotEmpty;
 
-    final service = context.read<TaskService>();
+    final hasTag = cat.colorTag != null && cat.colorTag!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
       ),
       child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+        ),
         child: ExpansionTile(
           initiallyExpanded: widget.initiallyExpanded,
           onExpansionChanged: (v) => setState(() => _expanded = v),
           tilePadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           childrenPadding: const EdgeInsets.only(bottom: 12),
 
-          // ================= HEADER =================
+          // ================= TITLE =================
           title: Row(
             children: [
               Expanded(
@@ -71,14 +75,32 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
                 ),
               ),
 
-              if (hasTag)
+              // 🔥 TAG
+              if (hasTag) ...[
+                const SizedBox(width: 8),
                 _TagChip(label: cat.colorTag!),
+              ],
+            ],
+          ),
 
-              const SizedBox(width: 8),
+          // ================= TRAILING =================
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 4),
 
-              // 🔥 DELETE FOLDER (PINDAH KE SINI)
+              Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                color: AppColors.primary,
+              ),
+
+              const SizedBox(width: 6),
+
+              // 🔥 DELETE FOLDER
               IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () async {
                   final confirm = await showDialog(
                     context: context,
@@ -102,97 +124,48 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
                   );
 
                   if (confirm == true) {
-                    await service.deleteFolder(cat.id);
+                    try {
+                      await context
+                          .read<TaskService>()
+                          .deleteTask(cat.id);
 
-                    if (context.mounted) {
+                      if (!context.mounted) return;
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text("Folder berhasil dihapus"),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Gagal hapus folder"),
                         ),
                       );
                     }
                   }
                 },
               ),
-
-              // ICON EXPAND
-              Icon(
-                _expanded
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down,
-                color: AppColors.primary,
-              ),
             ],
           ),
 
           // ================= CONTENT =================
-          children: hasItems
-              ? cat.tasks
-                  .map((task) => _TaskRow(
-                        task: task,
-                        onToggle: () =>
-                            widget.onToggleTask(task.id),
-                      ))
-                  .toList()
-              : [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 8),
-                    child: Text(
-                      'Belum ada tugas',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.textGrey,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================= TASK ROW =================
-class _TaskRow extends StatelessWidget {
-  final TaskModel task;
-  final VoidCallback onToggle;
-
-  const _TaskRow({
-    required this.task,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Checkbox(
-            value: task.isDone,
-            onChanged: (_) => onToggle(),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-
-          Expanded(
-            child: Text(
-              task.title,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: task.isDone
-                    ? AppColors.textGrey
-                    : AppColors.textDark,
-                decoration: task.isDone
-                    ? TextDecoration.lineThrough
-                    : TextDecoration.none,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 6),
+              child: Text(
+                'Belum ada tugas di folder ini',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textGrey,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -207,7 +180,6 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(right: 6),
       padding:
           const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
