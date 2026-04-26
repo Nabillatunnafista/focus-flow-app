@@ -9,12 +9,12 @@ import 'api_client.dart';
 
 class TaskService extends ChangeNotifier {
   List<TaskCategory> _categories = [];
-  DeadlineModel? _todayDeadline;
+  List<DeadlineModel> _deadlines = [];
   bool _isLoading = false;
   String? _error;
 
   List<TaskCategory> get categories => _categories;
-  DeadlineModel? get todayDeadline => _todayDeadline;
+  List<DeadlineModel> get deadlines => _deadlines;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -28,7 +28,7 @@ class TaskService extends ChangeNotifier {
     try {
       await Future.wait([
         _fetchTasks(),
-        _fetchTodayDeadline(),
+        _fetchDeadlines(),
       ]);
     } catch (e) {
       _error = 'Gagal memuat data: $e';
@@ -37,13 +37,12 @@ class TaskService extends ChangeNotifier {
     _setLoading(false);
   }
 
-  // ================= FETCH TASK =================
+  // ================= FETCH TASKS (GET /tasks) =================
   Future<void> _fetchTasks() async {
     try {
-      final resp = await _dio.get(ApiEndpoints.tasks);
+      final resp = await _dio.get(ApiEndpoints.listTasks);
 
       final data = resp.data;
-
       List listData = [];
 
       if (data is List) {
@@ -52,16 +51,13 @@ class TaskService extends ChangeNotifier {
         listData = data['data'];
       }
 
-      // 🔥 MAP KE TASKMODEL
-      final tasks = listData
-          .map((e) => TaskModel.fromJson(e))
-          .toList();
+      final tasks = listData.map((e) => TaskModel.fromJson(e)).toList();
 
-      // 🔥 BACKEND FLAT → BUNGKUS JADI 1 CATEGORY
+      // Bungkus dalam 1 TaskCategory
       _categories = [
         TaskCategory(
           id: "1",
-          name: "Tugas Saya",
+          name: "Semua Tugas",
           tasks: tasks,
           colorTag: "Hari Ini",
         )
@@ -69,19 +65,18 @@ class TaskService extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint("FETCH ERROR: $e");
+      debugPrint("FETCH TASKS ERROR: $e");
       _categories = [];
       notifyListeners();
     }
   }
 
-  // ================= DEADLINE =================
-  Future<void> _fetchTodayDeadline() async {
+  // ================= FETCH DEADLINES (GET /deadlines) =================
+  Future<void> _fetchDeadlines() async {
     try {
-      final resp = await _dio.get(ApiEndpoints.deadlines);
+      final resp = await _dio.get(ApiEndpoints.listDeadlines);
 
       final data = resp.data;
-
       List listData = [];
 
       if (data is List) {
@@ -90,93 +85,171 @@ class TaskService extends ChangeNotifier {
         listData = data['data'];
       }
 
-      if (listData.isNotEmpty) {
-        _todayDeadline = DeadlineModel.fromJson(listData.first);
-      }
+      _deadlines = listData.map((e) => DeadlineModel.fromJson(e)).toList();
 
       notifyListeners();
     } catch (e) {
-      debugPrint("DEADLINE ERROR: $e");
-    }
-  }
-
-  void markDeadlineDone() {
-    if (_todayDeadline != null) {
-      _todayDeadline!.isDone = true;
+      debugPrint("FETCH DEADLINES ERROR: $e");
+      _deadlines = [];
       notifyListeners();
     }
   }
 
-  // ================= ADD TASK =================
-  Future<void> addTask({
+  // ================= CREATE TASK (POST /tasks) =================
+  Future<void> createTask({
     required String title,
     DateTime? deadline,
+    String? priority,
   }) async {
     try {
       await _dio.post(
-        ApiEndpoints.tasks,
+        ApiEndpoints.createTask,
         data: {
-          "name": title, // 🔥 WAJIB (bukan title)
-          "code": "GEN101",
-          "semester": deadline != null
-              ? deadline.year.toString()
-              : "4",
+          "name": title,
+          "priority": priority ?? "medium",
+          "deadline": deadline?.toIso8601String(),
         },
       );
 
-      // 🔥 REFRESH DATA
       await loadDashboard();
     } catch (e) {
-      _error = "Gagal tambah task";
+      _error = "Gagal tambah task: $e";
       notifyListeners();
       rethrow;
     }
   }
 
-  // ================= DELETE =================
-  Future<void> deleteTask(String taskId) async {
+  // ================= UPDATE TASK (PATCH /tasks/:id) =================
+  Future<void> updateTask({
+    required String taskId,
+    required String title,
+    DateTime? deadline,
+    String? priority,
+  }) async {
     try {
-      await _dio.delete("${ApiEndpoints.tasks}/$taskId");
+      await _dio.patch(
+        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+        data: {
+          "name": title,
+          "priority": priority,
+          "deadline": deadline?.toIso8601String(),
+        },
+      );
 
       await loadDashboard();
     } catch (e) {
-      _error = "Gagal hapus tugas";
+      _error = "Gagal update task: $e";
       notifyListeners();
+      rethrow;
     }
   }
 
-  // ================= TOGGLE =================
-  Future<void> toggleTask(String categoryId, String taskId) async {
-    final catIdx =
-        _categories.indexWhere((c) => c.id == categoryId);
-    if (catIdx == -1) return;
+  // ================= DELETE TASK (DELETE /tasks/:id) =================
+  Future<void> deleteTask(String taskId) async {
+    try {
+      await _dio.delete(
+        ApiEndpoints.deleteTask.replaceAll(':id', taskId),
+      );
 
-    final taskIdx =
-        _categories[catIdx].tasks.indexWhere((t) => t.id == taskId);
-    if (taskIdx == -1) return;
+      await loadDashboard();
+    } catch (e) {
+      _error = "Gagal hapus tugas: $e";
+      notifyListeners();
+      rethrow;
+    }
+  }
 
-    final task = _categories[catIdx].tasks[taskIdx];
+  // ================= TOGGLE TASK STATUS (PATCH /tasks/:id) =================
+  Future<void> toggleTask(String taskId) async {
+    // Cari task di kategori
+    TaskModel? task;
+    int categoryIdx = -1;
+    int taskIdx = -1;
 
-    final newStatus =
-        task.isDone ? TaskStatus.pending : TaskStatus.done;
+    for (int i = 0; i < _categories.length; i++) {
+      final idx = _categories[i].tasks.indexWhere((t) => t.id == taskId);
+      if (idx != -1) {
+        categoryIdx = i;
+        taskIdx = idx;
+        task = _categories[i].tasks[idx];
+        break;
+      }
+    }
 
-    // 🔥 OPTIMISTIC UPDATE
-    _categories[catIdx].tasks[taskIdx] =
-        task.copyWith(status: newStatus);
+    if (categoryIdx == -1 || taskIdx == -1 || task == null) return;
 
+    final oldTask = task.copyWith();
+    final newStatus = task.isDone ? TaskStatus.pending : TaskStatus.done;
+
+    // Optimistic update
+    _categories[categoryIdx].tasks[taskIdx] =
+        task.copyWith(status: newStatus, isDone: !task.isDone);
     notifyListeners();
 
     try {
       await _dio.patch(
-        ApiEndpoints.taskDone.replaceAll(':id', taskId),
+        ApiEndpoints.updateTask.replaceAll(':id', taskId),
         data: {
           "is_done": newStatus == TaskStatus.done,
         },
       );
     } catch (e) {
-      // 🔥 ROLLBACK
-      _categories[catIdx].tasks[taskIdx] = task;
+      // Rollback
+      _categories[categoryIdx].tasks[taskIdx] = oldTask;
       notifyListeners();
+      _error = "Gagal toggle task: $e";
+    }
+  }
+
+  // ================= CREATE DEADLINE (POST /deadlines) =================
+  Future<void> createDeadline({
+    required String title,
+    required DateTime deadline,
+  }) async {
+    try {
+      await _dio.post(
+        ApiEndpoints.createDeadline,
+        data: {
+          "name": title,
+          "deadline": deadline.toIso8601String(),
+        },
+      );
+
+      await _fetchDeadlines();
+    } catch (e) {
+      _error = "Gagal tambah deadline: $e";
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ================= TOGGLE DEADLINE (PATCH /deadlines/:id/toggle) =================
+  Future<void> toggleDeadline(String deadlineId) async {
+    try {
+      await _dio.patch(
+        ApiEndpoints.toggleDeadline.replaceAll(':id', deadlineId),
+      );
+
+      await _fetchDeadlines();
+    } catch (e) {
+      _error = "Gagal toggle deadline: $e";
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ================= DELETE DEADLINE (DELETE /deadlines/:id) =================
+  Future<void> deleteDeadline(String deadlineId) async {
+    try {
+      await _dio.delete(
+        ApiEndpoints.deleteDeadline.replaceAll(':id', deadlineId),
+      );
+
+      await _fetchDeadlines();
+    } catch (e) {
+      _error = "Gagal hapus deadline: $e";
+      notifyListeners();
+      rethrow;
     }
   }
 

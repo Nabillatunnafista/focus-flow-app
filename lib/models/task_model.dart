@@ -1,77 +1,80 @@
 // lib/models/task_model.dart
 
-enum TaskStatus { pending, done }
+import 'package:flutter/material.dart';
 
+// ================= TASK =================
 class TaskModel {
   final String id;
   final String title;
-  final TaskStatus status;
+  bool isDone;
+  final DateTime? deadline;
+  final String? priority;
 
   TaskModel({
     required this.id,
     required this.title,
-    required this.status,
+    this.isDone = false,
+    this.deadline,
+    this.priority,
   });
-
-  bool get isDone => status == TaskStatus.done;
-
-  factory TaskModel.fromJson(Map<String, dynamic> json) {
-    return TaskModel(
-      id: json['id'].toString(),
-      title: json['name'] ?? '',
-      status: json['is_done'] == true
-          ? TaskStatus.done
-          : TaskStatus.pending,
-    );
-  }
 
   TaskModel copyWith({
     String? id,
     String? title,
-    TaskStatus? status,
+    bool? isDone,
+    DateTime? deadline,
+    String? priority,
   }) {
     return TaskModel(
       id: id ?? this.id,
       title: title ?? this.title,
-      status: status ?? this.status,
+      isDone: isDone ?? this.isDone,
+      deadline: deadline ?? this.deadline,
+      priority: priority ?? this.priority,
     );
   }
 }
 
-// ================= CATEGORY =================
-class TaskCategory {
+// ================= FOLDER =================
+class FolderModel {
   final String id;
   final String name;
+  final String? tag;
+  final Color tagColor;
   final List<TaskModel> tasks;
 
-  // 🔥 TAMBAHAN BIAR TIDAK ERROR
-  final String? colorTag;
-
-  TaskCategory({
+  FolderModel({
     required this.id,
     required this.name,
-    required this.tasks,
-    this.colorTag,
-  });
-}
+    this.tag,
+    this.tagColor = const Color(0xFF9B7EBD),
+    List<TaskModel>? tasks,
+  }) : tasks = tasks ?? [];
 
-// ================= DEADLINE =================
-class DeadlineModel {
-  String title;
-  DateTime deadline;
-  bool isDone;
-
-  DeadlineModel({
-    required this.title,
-    required this.deadline,
-    this.isDone = false,
-  });
-
-  factory DeadlineModel.fromJson(Map<String, dynamic> json) {
-    return DeadlineModel(
-      title: json['name'] ?? 'Deadline',
-      deadline: DateTime.tryParse(json['deadline'] ?? '') ??
-          DateTime.now(),
+  FolderModel copyWith({
+    String? id,
+    String? name,
+    String? tag,
+    Color? tagColor,
+    List<TaskModel>? tasks,
+  }) {
+    return FolderModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      tag: tag ?? this.tag,
+      tagColor: tagColor ?? this.tagColor,
+      tasks: tasks ?? List.from(this.tasks),
     );
+  }
+
+  int get taskCount => tasks.length;
+
+  List<TaskModel> get todayTasks {
+    final now = DateTime.now();
+    return tasks.where((t) {
+      if (t.deadline == null) return false;
+      final d = t.deadline!;
+      return d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList();
   }
 }
