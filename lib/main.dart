@@ -12,7 +12,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
-import 'providers/task_provider.dart';
+import 'services/task_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,8 +30,7 @@ class FocusFlowApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        // 🔥 Ganti TaskService dengan TaskProvider (local state)
-        ChangeNotifierProvider(create: (_) => TaskProvider()),
+        ChangeNotifierProvider(create: (_) => TaskService()),
       ],
       child: MaterialApp(
         title: AppStrings.appName,

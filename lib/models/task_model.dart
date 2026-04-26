@@ -18,6 +18,40 @@ class TaskModel {
     this.priority,
   });
 
+  factory TaskModel.fromJson(Map<String, dynamic> json) {
+    final rawDeadline =
+        json['deadline'] ?? json['due_date'] ?? json['dueDate'];
+    DateTime? parsedDeadline;
+
+    if (rawDeadline is String && rawDeadline.isNotEmpty) {
+      parsedDeadline = DateTime.tryParse(rawDeadline);
+    } else if (rawDeadline is int) {
+      parsedDeadline = DateTime.fromMillisecondsSinceEpoch(rawDeadline);
+    }
+
+    final rawDone = json['is_done'] ?? json['isDone'] ?? json['done'];
+    bool parsedDone = false;
+    if (rawDone is bool) {
+      parsedDone = rawDone;
+    } else if (rawDone is num) {
+      parsedDone = rawDone != 0;
+    } else if (rawDone is String) {
+      final value = rawDone.toLowerCase();
+      parsedDone = value == 'true' || value == '1' || value == 'done';
+    } else {
+      final status = (json['status'] ?? '').toString().toLowerCase();
+      parsedDone = status == 'done' || status == 'completed';
+    }
+
+    return TaskModel(
+      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      title: (json['title'] ?? json['name'] ?? '').toString(),
+      isDone: parsedDone,
+      deadline: parsedDeadline,
+      priority: json['priority']?.toString(),
+    );
+  }
+
   TaskModel copyWith({
     String? id,
     String? title,

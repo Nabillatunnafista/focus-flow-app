@@ -2,12 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
-import '../../models/task_model.dart';
-import '../../providers/task_provider.dart';
+import '../../services/task_service.dart';
 import '../../widgets/bottom_nav.dart';
 import 'widgets/add_folder_dialog.dart';
 import 'widgets/add_task_sheet.dart';
@@ -26,6 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _deadlineIndex = 0; // which deadline card is showing
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskService>().loadDashboard();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEDE9F6),
@@ -42,9 +48,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody() {
-    return Consumer<TaskProvider>(
+    return Consumer<TaskService>(
       builder: (context, provider, _) {
         final deadlines = provider.todayDeadlines;
+
+        if (provider.isLoading && provider.folders.isEmpty) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        }
 
         return CustomScrollView(
           slivers: [
@@ -65,13 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         .folderName,
                     task: deadlines[_deadlineIndex % deadlines.length].task,
                     onDone: () {
-                      final item =
-                          deadlines[_deadlineIndex % deadlines.length];
-                      // find folder id
-                      final folderId = provider.folders
-                          .firstWhere((f) => f.name == item.folderName)
-                          .id;
-                      provider.markTaskDone(folderId, item.task.id);
+                      final item = deadlines[_deadlineIndex % deadlines.length];
+                      provider.markTaskDoneById(item.task.id);
                     },
                   ),
                 ),
@@ -129,8 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: FolderCard(
                       folder: folder,
                       initiallyExpanded: index < 2,
-                      onToggleTask: (taskId) =>
-                          provider.toggleTask(folder.id, taskId),
+                      onToggleTask: (taskId) {
+                        provider.toggleTask(folder.id, taskId);
+                      },
                       onAddTask: () =>
                           _showAddTaskSheet(context, folderId: folder.id),
                     ),

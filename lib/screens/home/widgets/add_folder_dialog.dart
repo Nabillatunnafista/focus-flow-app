@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
-import '../../../providers/task_provider.dart';
+import '../../../services/task_service.dart';
 
 class AddFolderDialog extends StatefulWidget {
   const AddFolderDialog({super.key});
@@ -25,16 +25,23 @@ class _AddFolderDialogState extends State<AddFolderDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
 
-    context.read<TaskProvider>().addFolder(
-          name,
-          tag: _tagCtrl.text.trim(),
-        );
-
-    Navigator.pop(context);
+    try {
+      await context.read<TaskService>().addFolder(
+            name,
+            tag: _tagCtrl.text.trim(),
+          );
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menambah pelajaran')),
+      );
+    }
   }
 
   @override

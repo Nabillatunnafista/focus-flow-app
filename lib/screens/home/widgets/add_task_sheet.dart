@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
-import '../../../providers/task_provider.dart';
+import '../../../services/task_service.dart';
 
 class AddTaskSheet extends StatefulWidget {
   final String? preselectedFolderId;
@@ -60,23 +60,30 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final title = _taskCtrl.text.trim();
     if (title.isEmpty || _selectedFolderId == null) return;
 
-    context.read<TaskProvider>().addTask(
-          folderId: _selectedFolderId!,
-          title: title,
-          deadline: _selectedDate,
-          priority: _selectedPriority,
-        );
-
-    Navigator.pop(context);
+    try {
+      await context.read<TaskService>().addTask(
+            folderId: _selectedFolderId!,
+            title: title,
+            deadline: _selectedDate,
+            priority: _selectedPriority,
+          );
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal menambah task')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.read<TaskProvider>();
+    final provider = context.watch<TaskService>();
     final folders = provider.folders;
 
     return Container(

@@ -8,7 +8,7 @@ import '../models/task_model.dart';
 import '../services/task_service.dart';
 
 class TaskCategoryCard extends StatefulWidget {
-  final TaskCategory category;
+  final FolderModel category;
   final void Function(String taskId) onToggleTask;
   final bool initiallyExpanded;
 
@@ -36,7 +36,7 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
   Widget build(BuildContext context) {
     final cat = widget.category;
     final count = cat.tasks.length;
-    final hasTag = cat.colorTag != null;
+    final hasTag = cat.tag != null;
     final hasItems = cat.tasks.isNotEmpty;
 
     return Container(
@@ -66,7 +66,7 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               ),
               if (hasTag) ...[
                 const SizedBox(width: 8),
-                _TagChip(label: cat.colorTag!),
+                _TagChip(label: cat.tag!),
               ],
             ],
           ),
