@@ -1,4 +1,5 @@
 // lib/widgets/task_card.dart
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -39,8 +40,10 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
     final hasTag = cat.colorTag != null;
     final hasItems = cat.tasks.isNotEmpty;
 
+    final service = context.read<TaskService>();
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
@@ -54,35 +57,65 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.only(bottom: 12),
 
+          // ================= HEADER =================
           title: Row(
             children: [
-              Text(
-                cat.name,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: AppColors.primary,
+              Expanded(
+                child: Text(
+                  cat.name,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
-              if (hasTag) ...[
-                const SizedBox(width: 8),
-                _TagChip(label: cat.colorTag!),
-              ],
-            ],
-          ),
 
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$count',
-                style: GoogleFonts.poppins(
-                  color: AppColors.textGrey,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
+              if (hasTag)
+                _TagChip(label: cat.colorTag!),
+
+              const SizedBox(width: 8),
+
+              // 🔥 DELETE FOLDER (PINDAH KE SINI)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                onPressed: () async {
+                  final confirm = await showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("Hapus Folder"),
+                      content: const Text(
+                          "Yakin ingin menghapus folder ini?"),
+                      actions: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pop(context, false),
+                          child: const Text("Batal"),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pop(context, true),
+                          child: const Text("Hapus"),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirm == true) {
+                    await service.deleteFolder(cat.id);
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Folder berhasil dihapus"),
+                        ),
+                      );
+                    }
+                  }
+                },
               ),
-              const SizedBox(width: 4),
+
+              // ICON EXPAND
               Icon(
                 _expanded
                     ? Icons.keyboard_arrow_up
@@ -92,6 +125,7 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
             ],
           ),
 
+          // ================= CONTENT =================
           children: hasItems
               ? cat.tasks
                   .map((task) => _TaskRow(
@@ -103,9 +137,9 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               : [
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 4),
+                        horizontal: 20, vertical: 8),
                     child: Text(
-                      'Tidak ada tugas',
+                      'Belum ada tugas',
                       style: GoogleFonts.poppins(
                         color: AppColors.textGrey,
                         fontSize: 13,
@@ -131,17 +165,17 @@ class _TaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final service = context.read<TaskService>();
-
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
           Checkbox(
             value: task.isDone,
             onChanged: (_) => onToggle(),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4)),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
 
           Expanded(
@@ -158,57 +192,13 @@ class _TaskRow extends StatelessWidget {
               ),
             ),
           ),
-
-          // 🔥 DELETE BUTTON
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () async {
-              final confirm = await showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text("Hapus Tugas"),
-                  content: const Text(
-                      "Yakin ingin menghapus tugas ini?"),
-                  actions: [
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.pop(context, false),
-                      child: const Text("Batal"),
-                    ),
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.pop(context, true),
-                      child: const Text("Hapus"),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true) {
-                try {
-                  await service.deleteTask(task.id);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text("Tugas berhasil dihapus")),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text("Gagal hapus tugas")),
-                  );
-                }
-              }
-            },
-          ),
         ],
       ),
     );
   }
 }
 
-// ================= TAG =================
+// ================= TAG CHIP =================
 class _TagChip extends StatelessWidget {
   final String label;
 
@@ -217,6 +207,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.only(right: 6),
       padding:
           const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
