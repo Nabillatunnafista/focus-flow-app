@@ -1,14 +1,8 @@
 // lib/screens/home/home_screen.dart
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
-import '../../core/theme.dart';
-import '../../models/task_model.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../services/task_service.dart';
-import '../../widgets/bottom_nav.dart';
-import '../../widgets/task_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,344 +12,313 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _navIndex = 0;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 🔥 FIX: pakai backend, bukan mock
-      context.read<TaskService>().loadDashboard(useMock: false);
-    });
+    Future.microtask(() =>
+        context.read<TaskService>().loadDashboard());
   }
 
   @override
   Widget build(BuildContext context) {
-    final taskService = context.watch<TaskService>();
+    final service = context.watch<TaskService>();
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: SafeArea(
-        bottom: false,
-        child: taskService.isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              )
-            : _buildBody(taskService),
-      ),
-      bottomNavigationBar: FocusFlowBottomNav(
-        currentIndex: _navIndex,
-        onTap: (i) => setState(() => _navIndex = i),
-        onFabPressed: _showAddTaskSheet,
-      ),
-    );
-  }
-
-  Widget _buildBody(TaskService taskService) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: _Header()),
-        SliverToBoxAdapter(child: _InboxBanner()),
-
-        SliverToBoxAdapter(
-          child: _SectionTitle(title: 'Deadline Hari Ini'),
-        ),
-
-        if (taskService.todayDeadline != null)
-          SliverToBoxAdapter(
-            child: _DeadlineCard(
-              deadline: taskService.todayDeadline!,
-              onDone: taskService.markDeadlineDone,
+        child: Column(
+          children: [
+            // HEADER
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Kotak masuk",
+                      style:
+                          TextStyle(fontSize: 20)),
+                  const Icon(Icons.notifications)
+                ],
+              ),
             ),
-          ),
 
-        SliverToBoxAdapter(
-          child: _SectionTitle(
-            title: 'Daftar Tugas',
-            trailing: GestureDetector(
-              onTap: _showAddTaskSheet,
-              child: const Icon(Icons.add, color: AppColors.primary, size: 26),
-            ),
-          ),
-        ),
+            // DEADLINE
+            if (service.categories.isNotEmpty)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: service.categories.length,
+                  itemBuilder: (_, i) {
+                    final cat = service.categories[i];
 
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final cat = taskService.categories[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TaskCategoryCard(
-                  category: cat,
-                  initiallyExpanded: index < 2,
+                    return ExpansionTile(
+                      title: Text(cat.name),
+                      children: cat.tasks.map((t) {
+                        return ListTile(
+                          leading: Checkbox(
+                            value: t.isDone,
+                            onChanged: (_) {
+                              service.toggleTask(
+                                  cat.id, t.id);
+                            },
+                          ),
+                          title: Text(t.title),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete,
+                                color: Colors.red),
+                            onPressed: () {
+                              service.deleteTask(t.id);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
-              );
-            },
-            childCount: taskService.categories.length,
-          ),
-        ),
+              ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
-      ],
+            // ERROR
+            if (service.error != null)
+              Text(service.error!,
+                  style: const TextStyle(color: Colors.red)),
+          ],
+        ),
+      ),
+
+      // FAB
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ➕ ATAS → FOLDER
+          FloatingActionButton(
+            heroTag: "folder",
+            mini: true,
+            onPressed: _showAddFolderDialog,
+            child: const Icon(Icons.folder),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ➕ BAWAH → TASK
+          FloatingActionButton(
+            heroTag: "task",
+            onPressed: _showAddTaskSheet,
+            child: const Icon(Icons.add),
+          ),
+        ],
+      ),
     );
   }
 
+  // ================= POPUP FOLDER =================
+  void _showAddFolderDialog() {
+    final ctrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Tambah Bagian",
+                  style: TextStyle(fontSize: 18)),
+
+              const SizedBox(height: 10),
+
+              TextField(
+                controller: ctrl,
+                decoration: const InputDecoration(
+                  hintText: "Nama Bagian",
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: "Tambahkan Tag",
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(context),
+                    child: const Text("Batal"),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await context
+                          .read<TaskService>()
+                          .addFolder(name: ctrl.text);
+
+                      Navigator.pop(context);
+                    },
+                    child: const Text("Ok"),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================= BOTTOM SHEET TASK =================
   void _showAddTaskSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _AddTaskSheet(),
+      builder: (_) => const _TaskSheet(),
     );
   }
 }
 
-// ================= HEADER =================
-class _Header extends StatelessWidget {
+// ================= TASK SHEET =================
+class _TaskSheet extends StatefulWidget {
+  const _TaskSheet();
+
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Kotak masuk',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w800,
-              fontSize: 24,
-              color: AppColors.primary,
-            ),
-          ),
-          const Icon(Icons.notifications_outlined,
-              color: AppColors.primary, size: 28),
-        ],
-      ),
-    );
-  }
+  State<_TaskSheet> createState() => _TaskSheetState();
 }
 
-// ================= BANNER =================
-class _InboxBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.secondary,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        'Inspirasi tiba-tiba, tugas bisa dicatat di sini.',
-        style: GoogleFonts.poppins(color: Colors.white),
-      ),
-    );
-  }
-}
-
-// ================= TITLE =================
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final Widget? trailing;
-  const _SectionTitle({required this.title, this.trailing});
+class _TaskSheetState extends State<_TaskSheet> {
+  final ctrl = TextEditingController();
+  String? folderId;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title,
-              style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w700, fontSize: 17)),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-  }
-}
-
-// ================= DEADLINE =================
-class _DeadlineCard extends StatelessWidget {
-  final DeadlineModel deadline;
-  final VoidCallback onDone;
-
-  const _DeadlineCard({
-    required this.deadline,
-    required this.onDone,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(deadline.title),
-      subtitle: Text(DateFormat("dd MMM yyyy").format(deadline.deadline)),
-      trailing: ElevatedButton(
-        onPressed: deadline.isDone ? null : onDone,
-        child: Text(deadline.isDone ? "✓" : "Selesai"),
-      ),
-    );
-  }
-}
-
-// ================= ADD TASK =================
-class _AddTaskSheet extends StatefulWidget {
-  const _AddTaskSheet();
-
-  @override
-  State<_AddTaskSheet> createState() => _AddTaskSheetState();
-}
-
-class _AddTaskSheetState extends State<_AddTaskSheet> {
-  final _ctrl = TextEditingController();
-  DateTime? _selectedDate;
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-    );
-
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
-  }
-
-  Future<void> _submit(TaskService service) async {
-    if (_ctrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Nama tugas wajib diisi")),
-      );
-      return;
-    }
-
-    if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Deadline wajib dipilih")),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      await service.addTask(
-        title: _ctrl.text.trim(),
-        deadline: _selectedDate,
-      );
-      await service.loadDashboard();
-
-      if (!mounted) return;
-
-      Navigator.pop(context);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Tugas berhasil ditambahkan"),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Gagal menambah tugas"),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final service = context.read<TaskService>();
+    final service = context.watch<TaskService>();
 
     return Container(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context)
+                .viewInsets
+                .bottom +
+            16,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: Color(0xFF6A4CAF),
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        reverse: true,
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            const Text("Apa yang ingin kamu lakukan?",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16)),
+
+            const SizedBox(height: 8),
+
+            TextField(
+              controller: ctrl,
+              maxLines: null,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: "Deskripsi",
+                hintStyle:
+                    TextStyle(color: Colors.white70),
+                border: InputBorder.none,
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            DropdownButtonFormField(
+              dropdownColor: Colors.white,
+              hint: const Text("Pilih Folder"),
+              items: service.categories.map((e) {
+                return DropdownMenuItem(
+                  value: e.id,
+                  child: Text(e.name),
+                );
+              }).toList(),
+              onChanged: (v) {
+                folderId = v;
+              },
+            ),
+
+            const SizedBox(height: 10),
+
+            // CHIPS (1 BARIS)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: const [
+                  _Chip(icon: Icons.calendar_today, text: "Date"),
+                  _Chip(icon: Icons.attach_file, text: "Attachment"),
+                  _Chip(icon: Icons.flag, text: "Priority"),
+                  _Chip(icon: Icons.alarm, text: "Reminder"),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await context
+                      .read<TaskService>()
+                      .addTask(
+                        title: ctrl.text,
+                        categoryId: folderId,
+                      );
+
+                  Navigator.pop(context);
+                },
+                child: const Text("Simpan"),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ================= CHIP =================
+class _Chip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _Chip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white24,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
         children: [
-          // TITLE
-          const Text(
-            "Tambah Tugas",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // INPUT
-          TextField(
-            controller: _ctrl,
-            decoration: const InputDecoration(
-              hintText: "Nama tugas",
-              border: OutlineInputBorder(),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // DATE PICKER
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _selectedDate == null
-                      ? "Pilih deadline"
-                      : DateFormat("dd MMM yyyy")
-                          .format(_selectedDate!),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.calendar_today),
-                onPressed: _pickDate,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // BUTTON
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed:
-                  _isSubmitting ? null : () => _submit(service),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text("Simpan"),
-            ),
-          ),
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(text,
+              style: const TextStyle(color: Colors.white)),
         ],
       ),
     );
