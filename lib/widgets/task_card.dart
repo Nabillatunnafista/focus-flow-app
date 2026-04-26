@@ -1,18 +1,21 @@
 // lib/widgets/task_card.dart
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../core/theme.dart';
 import '../models/task_model.dart';
 import '../services/task_service.dart';
 
 class TaskCategoryCard extends StatefulWidget {
   final TaskCategory category;
+  final void Function(String taskId) onToggleTask;
   final bool initiallyExpanded;
 
   const TaskCategoryCard({
     super.key,
     required this.category,
+    required this.onToggleTask,
     this.initiallyExpanded = false,
   });
 
@@ -32,56 +35,201 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
   @override
   Widget build(BuildContext context) {
     final cat = widget.category;
+    final count = cat.tasks.length;
+    final hasTag = cat.colorTag != null;
+    final hasItems = cat.tasks.isNotEmpty;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: ExpansionTile(
-        initiallyExpanded: widget.initiallyExpanded,
-        onExpansionChanged: (v) => setState(() => _expanded = v),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: widget.initiallyExpanded,
+          onExpansionChanged: (v) => setState(() => _expanded = v),
+          tilePadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.only(bottom: 12),
 
-        title: Text(cat.name),
+          title: Row(
+            children: [
+              Text(
+                cat.name,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: AppColors.primary,
+                ),
+              ),
+              if (hasTag) ...[
+                const SizedBox(width: 8),
+                _TagChip(label: cat.colorTag!),
+              ],
+            ],
+          ),
 
-        trailing: Icon(
-          _expanded
-              ? Icons.keyboard_arrow_up
-              : Icons.keyboard_arrow_down,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$count',
+                style: GoogleFonts.poppins(
+                  color: AppColors.textGrey,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+
+          children: hasItems
+              ? cat.tasks
+                  .map((task) => _TaskRow(
+                        task: task,
+                        onToggle: () =>
+                            widget.onToggleTask(task.id),
+                      ))
+                  .toList()
+              : [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 4),
+                    child: Text(
+                      'Tidak ada tugas',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.textGrey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
         ),
+      ),
+    );
+  }
+}
 
-        children: cat.tasks.isEmpty
-            ? [
-                const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text("Belum ada tugas"),
-                )
-              ]
-            : cat.tasks.map((task) {
-                return ListTile(
-                  leading: Checkbox(
-                    value: task.isDone,
-                    onChanged: (v) {
-                      if (v == null) return;
+// ================= TASK ROW =================
+class _TaskRow extends StatelessWidget {
+  final TaskModel task;
+  final VoidCallback onToggle;
 
-                      context.read<TaskService>().toggleTask(
-                            cat.id,       // categoryId
-                            task.id,      // taskId
-                          );
-                    },
-                  ),
-                  title: Text(task.title),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () {
-                      context
-                          .read<TaskService>()
-                          .deleteTask(task.id);
-                    },
-                  ),
-                );
-              }).toList(),
+  const _TaskRow({
+    required this.task,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<TaskService>();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Row(
+        children: [
+          Checkbox(
+            value: task.isDone,
+            onChanged: (_) => onToggle(),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4)),
+          ),
+
+          Expanded(
+            child: Text(
+              task.title,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: task.isDone
+                    ? AppColors.textGrey
+                    : AppColors.textDark,
+                decoration: task.isDone
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
+              ),
+            ),
+          ),
+
+          // 🔥 DELETE BUTTON
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () async {
+              final confirm = await showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("Hapus Tugas"),
+                  content: const Text(
+                      "Yakin ingin menghapus tugas ini?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(context, false),
+                      child: const Text("Batal"),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(context, true),
+                      child: const Text("Hapus"),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  await service.deleteTask(task.id);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text("Tugas berhasil dihapus")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text("Gagal hapus tugas")),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================= TAG =================
+class _TagChip extends StatelessWidget {
+  final String label;
+
+  const _TagChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.chipWed.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '#$label',
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.secondary,
+        ),
       ),
     );
   }
