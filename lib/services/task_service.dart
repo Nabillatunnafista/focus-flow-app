@@ -105,11 +105,10 @@ class TaskService extends ChangeNotifier {
     try {
       await _patchTaskStatus(taskId, found.task.isDone);
     } on DioException catch (e) {
-      found.task.isDone = oldValue;
+      // Keep optimistic UI state even if network fails; show error instead of rollback
       _error = _parseError(e);
       notifyListeners();
     } catch (e) {
-      found.task.isDone = oldValue;
       _error = 'Gagal ubah status task: $e';
       notifyListeners();
     }
@@ -152,6 +151,35 @@ class TaskService extends ChangeNotifier {
     }
   }
 
+  Future<void> updateTask({
+    required String taskId,
+    required String title,
+    DateTime? deadline,
+    String? priority,
+  }) async {
+    try {
+      await _dio.patch(
+        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+        data: {
+          'name': title,
+          if (deadline != null) 'deadline': deadline.toIso8601String(),
+          if (priority != null && priority.isNotEmpty)
+            'priority': _normalizePriority(priority),
+        },
+      );
+
+      await loadDashboard();
+    } on DioException catch (e) {
+      _error = _parseError(e);
+      notifyListeners();
+      rethrow;
+    } catch (e) {
+      _error = 'Gagal update task: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> _fetchFolders() async {
     _folders.clear();
 
@@ -163,10 +191,8 @@ class TaskService extends ChangeNotifier {
         final json = _asMap(item);
         if (json.isEmpty) continue;
 
-        final id =
-            _readString(json, const ['id', '_id', 'matkul_id']) ?? '';
-        final name =
-            _readString(json, const ['name', 'title', 'matkul']) ?? '';
+        final id = _readString(json, const ['id', '_id', 'matkul_id']) ?? '';
+        final name = _readString(json, const ['name', 'title', 'matkul']) ?? '';
         final tag = _readString(json, const ['tag', 'label', 'day']);
 
         if (id.isEmpty || name.isEmpty) continue;
@@ -269,7 +295,12 @@ class TaskService extends ChangeNotifier {
 
         final folderName = _readString(
               json,
-              const ['matkul_name', 'matkulName', 'folder_name', 'category_name'],
+              const [
+                'matkul_name',
+                'matkulName',
+                'folder_name',
+                'category_name'
+              ],
             ) ??
             'Deadline';
 
@@ -331,13 +362,33 @@ class TaskService extends ChangeNotifier {
   }
 
   Future<void> _patchTaskStatus(String taskId, bool isDone) async {
-    await _dio.patch(
+    final resp = await _dio.patch(
       ApiEndpoints.updateTask.replaceAll(':id', taskId),
       data: {
+        // include multiple keys for broader backend compatibility
         'is_done': isDone,
+        'isDone': isDone,
+        'completed': isDone ? 1 : 0,
         'status': isDone ? 'done' : 'pending',
       },
     );
+
+    // If API returns updated task object, apply it to local model to avoid desync
+    try {
+      final data = resp.data;
+      final map =
+          _asMap(data is Map && data['data'] != null ? data['data'] : data);
+      if (map.isNotEmpty) {
+        final updated = TaskModel.fromJson(map);
+        final lookup = _findTask(taskId: taskId);
+        if (lookup != null) {
+          _folders[lookup.folderIndex].tasks[lookup.taskIndex] = updated;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      // ignore parsing errors; optimistically keep local state
+    }
   }
 
   _TaskLookup? _findTask({String? folderId, required String taskId}) {

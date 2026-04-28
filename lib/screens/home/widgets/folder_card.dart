@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme.dart';
 import '../../../models/task_model.dart';
+import 'package:provider/provider.dart';
+import '../../../services/task_service.dart';
 
 class FolderCard extends StatefulWidget {
   final FolderModel folder;
@@ -39,8 +41,7 @@ class _FolderCardState extends State<FolderCard>
       duration: const Duration(milliseconds: 200),
       value: _expanded ? 1.0 : 0.0,
     );
-    _rotateAnim =
-        Tween<double>(begin: 0, end: 0.5).animate(_animController);
+    _rotateAnim = Tween<double>(begin: 0, end: 0.5).animate(_animController);
   }
 
   @override
@@ -82,8 +83,7 @@ class _FolderCardState extends State<FolderCard>
             borderRadius: BorderRadius.circular(14),
             onTap: _toggle,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
                   // Name + Tag
@@ -144,8 +144,8 @@ class _FolderCardState extends State<FolderCard>
 
                 if (!hasTasks)
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Row(
                       children: [
                         Text(
@@ -162,6 +162,7 @@ class _FolderCardState extends State<FolderCard>
                 // Task rows
                 ...folder.tasks.map(
                   (task) => _TaskRow(
+                    folderId: folder.id,
                     task: task,
                     onToggle: () => widget.onToggleTask(task.id),
                   ),
@@ -207,13 +208,17 @@ class _FolderCardState extends State<FolderCard>
 
 // ─── TASK ROW ────────────────────────────────────────────────
 class _TaskRow extends StatelessWidget {
+  final String folderId;
   final TaskModel task;
   final VoidCallback onToggle;
 
-  const _TaskRow({required this.task, required this.onToggle});
+  const _TaskRow(
+      {required this.folderId, required this.task, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
+    final service = context.read<TaskService>();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
@@ -237,15 +242,86 @@ class _TaskRow extends StatelessWidget {
               task.title,
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: task.isDone
-                    ? AppColors.textGrey
-                    : AppColors.textDark,
+                color: task.isDone ? AppColors.textGrey : AppColors.textDark,
                 decoration: task.isDone
                     ? TextDecoration.lineThrough
                     : TextDecoration.none,
               ),
             ),
           ),
+
+          // show edit + delete only when task is done
+          if (task.isDone) ...[
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.purple),
+              onPressed: () async {
+                final controller = TextEditingController(text: task.title);
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Edit Tugas'),
+                    content: TextField(
+                      controller: controller,
+                      decoration:
+                          const InputDecoration(hintText: 'Judul tugas'),
+                    ),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Batal')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Simpan')),
+                    ],
+                  ),
+                );
+
+                if (ok == true) {
+                  final newTitle = controller.text.trim();
+                  if (newTitle.isEmpty) return;
+                  try {
+                    await service.updateTask(taskId: task.id, title: newTitle);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tugas diperbarui')));
+                  } catch (_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal update tugas')));
+                  }
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Hapus Tugas'),
+                    content: const Text('Yakin ingin menghapus tugas ini?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Batal')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Hapus')),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  try {
+                    await service.deleteTask(task.id, folderId: folderId);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Tugas berhasil dihapus')));
+                  } catch (_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal hapus tugas')));
+                  }
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -262,8 +338,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.18),
         borderRadius: BorderRadius.circular(20),

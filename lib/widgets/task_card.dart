@@ -50,10 +50,8 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
         child: ExpansionTile(
           initiallyExpanded: widget.initiallyExpanded,
           onExpansionChanged: (v) => setState(() => _expanded = v),
-          tilePadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.only(bottom: 12),
-
           title: Row(
             children: [
               Text(
@@ -70,7 +68,6 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               ],
             ],
           ),
-
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -84,26 +81,23 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
               ),
               const SizedBox(width: 4),
               Icon(
-                _expanded
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down,
+                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 color: AppColors.primary,
               ),
             ],
           ),
-
           children: hasItems
               ? cat.tasks
                   .map((task) => _TaskRow(
+                        folderId: cat.id,
                         task: task,
-                        onToggle: () =>
-                            widget.onToggleTask(task.id),
+                        onToggle: () => widget.onToggleTask(task.id),
                       ))
                   .toList()
               : [
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                     child: Text(
                       'Tidak ada tugas',
                       style: GoogleFonts.poppins(
@@ -121,10 +115,12 @@ class _TaskCategoryCardState extends State<TaskCategoryCard> {
 
 // ================= TASK ROW =================
 class _TaskRow extends StatelessWidget {
+  final String folderId;
   final TaskModel task;
   final VoidCallback onToggle;
 
   const _TaskRow({
+    required this.folderId,
     required this.task,
     required this.onToggle,
   });
@@ -140,68 +136,92 @@ class _TaskRow extends StatelessWidget {
           Checkbox(
             value: task.isDone,
             onChanged: (_) => onToggle(),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           ),
-
           Expanded(
             child: Text(
               task.title,
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: task.isDone
-                    ? AppColors.textGrey
-                    : AppColors.textDark,
+                color: task.isDone ? AppColors.textGrey : AppColors.textDark,
                 decoration: task.isDone
                     ? TextDecoration.lineThrough
                     : TextDecoration.none,
               ),
             ),
           ),
-
-          // 🔥 DELETE BUTTON
-          IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () async {
-              final confirm = await showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text("Hapus Tugas"),
-                  content: const Text(
-                      "Yakin ingin menghapus tugas ini?"),
-                  actions: [
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.pop(context, false),
-                      child: const Text("Batal"),
+          if (task.isDone) ...[
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.purple),
+              onPressed: () async {
+                final controller = TextEditingController(text: task.title);
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Edit Tugas'),
+                    content: TextField(
+                      controller: controller,
+                      decoration:
+                          const InputDecoration(hintText: 'Judul tugas'),
                     ),
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.pop(context, true),
-                      child: const Text("Hapus"),
-                    ),
-                  ],
-                ),
-              );
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Batal')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Simpan')),
+                    ],
+                  ),
+                );
 
-              if (confirm == true) {
-                try {
-                  await service.deleteTask(task.id);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text("Tugas berhasil dihapus")),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text("Gagal hapus tugas")),
-                  );
+                if (ok == true) {
+                  final newTitle = controller.text.trim();
+                  if (newTitle.isEmpty) return;
+                  try {
+                    await service.updateTask(taskId: task.id, title: newTitle);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tugas diperbarui')));
+                  } catch (_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal update tugas')));
+                  }
                 }
-              }
-            },
-          ),
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Hapus Tugas'),
+                    content: const Text('Yakin ingin menghapus tugas ini?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Batal')),
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Hapus')),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  try {
+                    await service.deleteTask(task.id, folderId: folderId);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Tugas berhasil dihapus')));
+                  } catch (_) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal hapus tugas')));
+                  }
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -217,8 +237,7 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       decoration: BoxDecoration(
         color: AppColors.chipWed.withOpacity(0.2),
         borderRadius: BorderRadius.circular(20),
