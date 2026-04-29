@@ -158,17 +158,52 @@ class TaskService extends ChangeNotifier {
     String? priority,
   }) async {
     try {
-      await _dio.patch(
-        ApiEndpoints.updateTask.replaceAll(':id', taskId),
-        data: {
-          'name': title,
-          if (deadline != null) 'deadline': deadline.toIso8601String(),
-          if (priority != null && priority.isNotEmpty)
-            'priority': _normalizePriority(priority),
-        },
-      );
+      final lookup = _findTask(taskId: taskId);
+final isDone = lookup?.task.isDone ?? false;
 
-      await loadDashboard();
+final resp = await _dio.patch(
+  ApiEndpoints.updateTask.replaceAll(':id', taskId),
+  data: {
+    // required by Go backend (and compatibility keys)
+    'is_done': isDone,
+    'isDone': isDone,
+    'completed': isDone ? 1 : 0,
+    'status': isDone ? 'done' : 'pending',
+
+    // existing fields
+    'name': title,
+    'title': title,
+    if (deadline != null) 'deadline': deadline.toIso8601String(),
+    if (priority != null && priority.isNotEmpty)
+      'priority': _normalizePriority(priority),
+  },
+);
+
+      final status = resp.statusCode ?? 0;
+      if (status == 200 || status == 201 || status == 204) {
+        // if API returned updated object, apply it; otherwise reload
+        try {
+          final data = resp.data;
+          final map =
+              _asMap(data is Map && data['data'] != null ? data['data'] : data);
+          if (map.isNotEmpty) {
+            final updated = TaskModel.fromJson(map);
+            final lookup = _findTask(taskId: taskId);
+            if (lookup != null) {
+              _folders[lookup.folderIndex].tasks[lookup.taskIndex] = updated;
+              notifyListeners();
+              return;
+            }
+          }
+        } catch (_) {}
+
+        await loadDashboard();
+        return;
+      }
+
+      _error = 'Gagal update task: status $status';
+      notifyListeners();
+      throw Exception(_error);
     } on DioException catch (e) {
       _error = _parseError(e);
       notifyListeners();
