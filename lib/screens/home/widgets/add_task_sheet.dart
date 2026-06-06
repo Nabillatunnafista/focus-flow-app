@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
 import '../../../services/task_service.dart';
+import 'date_time_picker_sheet.dart';
 
 class AddTaskSheet extends StatefulWidget {
   final String? preselectedFolderId;
@@ -37,27 +38,16 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   }
 
   Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: DateTime(2030),
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textDark,
-            ),
-          ),
-          child: child!,
-        );
-      },
+    final picked = await showDateTimePickerSheet(
+      context,
+      initial: _selectedDate,
     );
-    if (picked != null) setState(() => _selectedDate = picked);
+    // picked == null berarti user tekan "Hapus" → clear deadline
+    if (picked == null && _selectedDate != null) {
+      setState(() => _selectedDate = null);
+    } else if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
   }
 
   Future<void> _submit() async {
@@ -79,6 +69,31 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
         const SnackBar(content: Text('Gagal menambah task')),
       );
     }
+  }
+
+  /// Format label chip deadline: tampilkan tanggal + jam jika ada
+  String _formatDeadlineLabel(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final d = DateTime(dt.year, dt.month, dt.day);
+
+    String dateStr;
+    if (d == today) {
+      dateStr = 'Hari ini';
+    } else if (d == tomorrow) {
+      dateStr = 'Besok';
+    } else {
+      dateStr = DateFormat('d MMM', 'id_ID').format(dt);
+    }
+
+    // Jika jam bukan 00:00 (artinya user sudah set waktu)
+    final hasTime = dt.hour != 0 || dt.minute != 0;
+    if (hasTime) {
+      final timeStr = DateFormat('HH:mm').format(dt);
+      return '$dateStr, $timeStr';
+    }
+    return dateStr;
   }
 
   @override
@@ -164,7 +179,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                   _ActionChip(
                     icon: Icons.calendar_today_outlined,
                     label: _selectedDate != null
-                        ? DateFormat('d MMM').format(_selectedDate!)
+                        ? _formatDeadlineLabel(_selectedDate!)
                         : 'Date',
                     onTap: _pickDate,
                     isActive: _selectedDate != null,

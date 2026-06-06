@@ -7,6 +7,10 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../services/task_service.dart';
 import '../../widgets/bottom_nav.dart';
+import '../calendar/calendar_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../profile/profile_screen.dart';
+import '../tasks/task_list_screen.dart';
 import 'widgets/add_folder_dialog.dart';
 import 'widgets/add_task_sheet.dart';
 import 'widgets/deadline_card.dart';
@@ -21,7 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
-  int _deadlineIndex = 0; // which deadline card is showing
+  int _deadlineIndex = 0;
 
   @override
   void initState() {
@@ -37,7 +41,15 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFFEDE9F6),
       body: SafeArea(
         bottom: false,
-        child: _buildBody(),
+        child: IndexedStack(
+          index: _navIndex,
+          children: [
+            _buildHomeBody(),
+            const TaskListScreen(),
+            const CalendarScreen(),
+            const ProfileScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: FocusFlowBottomNav(
         currentIndex: _navIndex,
@@ -47,7 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBody() {
+  // ─── HOME BODY ────────────────────────────────────────────────
+  Widget _buildHomeBody() {
     return Consumer<TaskService>(
       builder: (context, provider, _) {
         final deadlines = provider.todayDeadlines;
@@ -61,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return CustomScrollView(
           slivers: [
             // ── Header ──────────────────────────────────────────
-            SliverToBoxAdapter(child: _buildHeader()),
+            SliverToBoxAdapter(child: _buildHeader(context)),
 
             // ── Deadline Section ────────────────────────────────
             SliverToBoxAdapter(
@@ -73,11 +86,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: DeadlineCard(
-                    folderName: deadlines[_deadlineIndex % deadlines.length]
-                        .folderName,
+                    folderName:
+                        deadlines[_deadlineIndex % deadlines.length].folderName,
                     task: deadlines[_deadlineIndex % deadlines.length].task,
                     onDone: () {
-                      final item = deadlines[_deadlineIndex % deadlines.length];
+                      final item =
+                          deadlines[_deadlineIndex % deadlines.length];
                       provider.markTaskDoneById(item.task.id);
                     },
                   ),
@@ -118,8 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add,
-                        color: Colors.white, size: 20),
+                    child: const Icon(Icons.add, color: Colors.white, size: 20),
                   ),
                 ),
               ),
@@ -156,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ─── HEADER ──────────────────────────────────────────────────
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Row(
@@ -170,23 +183,33 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.primary,
             ),
           ),
-          Stack(
-            children: [
-              const Icon(Icons.notifications_outlined,
-                  color: AppColors.primary, size: 28),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF7C3AED),
-                    shape: BoxShape.circle,
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsScreen(),
+                ),
+              );
+            },
+            child: Stack(
+              children: [
+                const Icon(Icons.notifications_outlined,
+                    color: AppColors.primary, size: 28),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF7C3AED),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

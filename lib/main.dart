@@ -10,6 +10,10 @@ import 'screens/splash/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/calendar/calendar_screen.dart';
+import 'screens/tasks/task_list_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/task_service.dart';
@@ -42,6 +46,10 @@ class FocusFlowApp extends StatelessWidget {
           AppRoutes.login: (_) => const LoginScreen(),
           AppRoutes.register: (_) => const RegisterScreen(),
           AppRoutes.home: (_) => const HomeScreen(),
+          AppRoutes.taskList: (_) => const TaskListScreen(),
+          AppRoutes.calendar: (_) => const CalendarScreen(),
+          AppRoutes.notifications: (_) => const NotificationsScreen(),
+          AppRoutes.profile: (_) => const ProfileScreen(),
         },
       ),
     );

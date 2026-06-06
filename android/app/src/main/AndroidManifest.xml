@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Izin untuk akses galeri foto (Android 13+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Izin untuk akses galeri foto (Android < 13) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Izin kamera (opsional, untuk ambil foto langsung) -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <application
         android:label="focus_flow"
         android:name="${applicationName}"

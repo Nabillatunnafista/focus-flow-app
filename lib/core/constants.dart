@@ -7,6 +7,10 @@ class AppRoutes {
   static const String register = '/register';
   static const String home = '/home';
   static const String addTask = '/add-task';
+  static const String taskList = '/task-list';
+  static const String calendar = '/calendar';
+  static const String notifications = '/notifications';
+  static const String profile = '/profile';
 }
 
 class ApiEndpoints {
@@ -20,6 +24,9 @@ class ApiEndpoints {
 
   // ──── USER (Protected) ─────────────────────────────────────
   static const String me = '/me';
+  static const String updateMe = '/me';
+  static const String changePassword = '/me/change-password';
+  static const String uploadAvatar = '/me/avatar';
 
   // ──── MATKUL / COURSES (Protected) ─────────────────────────
   static const String matkul = '/matkul';

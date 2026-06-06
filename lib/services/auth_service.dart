@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +17,12 @@ class AuthService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null;
+
+  /// Nama tampilan user (name jika ada, fallback ke bagian sebelum @ di email)
+  String get displayName =>
+      _currentUser?.name?.trim().isNotEmpty == true
+          ? _currentUser!.name!
+          : _currentUser?.email.split('@').first ?? 'User';
 
   Dio get _dio => ApiClient.instance.dio;
 
@@ -137,6 +145,100 @@ class AuthService extends ChangeNotifier {
     await _clearStorage();
     _currentUser = null;
     notifyListeners();
+  }
+
+  // ─────────────────────────────────────────
+  // UPDATE DISPLAY NAME
+  // ─────────────────────────────────────────
+  Future<String?> updateDisplayName(String newName) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final resp = await _dio.put(
+        ApiEndpoints.updateMe,
+        data: {'name': newName.trim()},
+      );
+
+      final data = resp.data['data'];
+      _currentUser = UserModel.fromJson(data as Map<String, dynamic>);
+      notifyListeners();
+      return null;
+    } on DioException catch (e) {
+      _error = _parseError(e);
+      return _error;
+    } catch (e) {
+      _error = 'Terjadi kesalahan: $e';
+      return _error;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // CHANGE PASSWORD
+  // ─────────────────────────────────────────
+  Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      await _dio.post(
+        ApiEndpoints.changePassword,
+        data: {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+      );
+      return null;
+    } on DioException catch (e) {
+      _error = _parseError(e);
+      return _error;
+    } catch (e) {
+      _error = 'Terjadi kesalahan: $e';
+      return _error;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // UPLOAD AVATAR
+  // ─────────────────────────────────────────
+  Future<String?> uploadAvatar(File imageFile) async {
+    _setLoading(true);
+    _error = null;
+
+    try {
+      final formData = FormData.fromMap({
+        'avatar': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split('/').last,
+        ),
+      });
+
+      final resp = await _dio.post(
+        ApiEndpoints.uploadAvatar,
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      final data = resp.data['data'];
+      _currentUser = UserModel.fromJson(data as Map<String, dynamic>);
+      notifyListeners();
+      return null;
+    } on DioException catch (e) {
+      _error = _parseError(e);
+      return _error;
+    } catch (e) {
+      _error = 'Terjadi kesalahan: $e';
+      return _error;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   // ─────────────────────────────────────────

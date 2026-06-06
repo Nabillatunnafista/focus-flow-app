@@ -30,6 +30,21 @@ class UserModel {
         'name': name,
         'avatar_url': avatarUrl,
       };
+
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? avatarUrl,
+    bool clearAvatar = false,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
+    );
+  }
 }
 
 /// Request untuk Login
