@@ -314,17 +314,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                         ),
                                       ],
                                     ),
-                                    const Spacer(),
-                                    Container(
-                                      width: 30,
-                                      height: 30,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.add,
-                                          color: Colors.white, size: 20),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),

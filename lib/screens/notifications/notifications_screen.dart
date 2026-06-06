@@ -27,13 +27,41 @@ class NotificationsScreen extends StatelessWidget {
                 // ── Header ─────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                  child: Text(
-                    'Pusat Notifikasi',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
-                    ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: AppColors.primary,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Text(
+                        'Pusat Notifikasi',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 

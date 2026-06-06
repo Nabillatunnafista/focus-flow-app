@@ -6,6 +6,8 @@
         android:maxSdkVersion="32" />
     <!-- Izin kamera (opsional, untuk ambil foto langsung) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Izin notifikasi (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="focus_flow"
         android:name="${applicationName}"

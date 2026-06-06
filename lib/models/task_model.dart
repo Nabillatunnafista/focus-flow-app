@@ -9,6 +9,7 @@ class TaskModel {
   bool isDone;
   final DateTime? deadline;
   final String? priority;
+  final int? reminderOffsetMinutes;
 
   TaskModel({
     required this.id,
@@ -16,11 +17,12 @@ class TaskModel {
     this.isDone = false,
     this.deadline,
     this.priority,
+    this.reminderOffsetMinutes,
   });
 
   factory TaskModel.fromJson(Map<String, dynamic> json) {
     final rawDeadline =
-        json['deadline'] ?? json['due_date'] ?? json['dueDate'];
+        json['deadline'] ?? json['due_date'] ?? json['dueDate'] ?? json['due_at'] ?? json['dueAt'];
     DateTime? parsedDeadline;
 
     if (rawDeadline is String && rawDeadline.isNotEmpty) {
@@ -43,12 +45,21 @@ class TaskModel {
       parsedDone = status == 'done' || status == 'completed';
     }
 
+    final rawReminder = json['reminder_offset_minutes'] ?? json['reminderOffsetMinutes'];
+    int? parsedReminder;
+    if (rawReminder is int) {
+      parsedReminder = rawReminder;
+    } else if (rawReminder is String) {
+      parsedReminder = int.tryParse(rawReminder);
+    }
+
     return TaskModel(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
       title: (json['title'] ?? json['name'] ?? '').toString(),
       isDone: parsedDone,
       deadline: parsedDeadline,
       priority: json['priority']?.toString(),
+      reminderOffsetMinutes: parsedReminder,
     );
   }
 
@@ -58,6 +69,7 @@ class TaskModel {
     bool? isDone,
     DateTime? deadline,
     String? priority,
+    int? reminderOffsetMinutes,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -65,6 +77,7 @@ class TaskModel {
       isDone: isDone ?? this.isDone,
       deadline: deadline ?? this.deadline,
       priority: priority ?? this.priority,
+      reminderOffsetMinutes: reminderOffsetMinutes ?? this.reminderOffsetMinutes,
     );
   }
 }

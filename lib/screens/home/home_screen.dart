@@ -26,6 +26,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
   int _deadlineIndex = 0;
+  bool _hasUnread = false;
 
   @override
   void initState() {
@@ -33,6 +34,19 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TaskService>().loadDashboard();
     });
+  }
+
+  /// Hitung apakah ada notifikasi aktif (deadline hari ini / terlewat)
+  bool _computeHasNotifications(TaskService provider) {
+    final now = DateTime.now();
+    for (final folder in provider.folders) {
+      for (final task in folder.tasks) {
+        if (task.deadline == null || task.isDone) continue;
+        final diff = task.deadline!.difference(now);
+        if (diff.isNegative || diff.inHours < 24) return true;
+      }
+    }
+    return false;
   }
 
   @override
@@ -54,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: FocusFlowBottomNav(
         currentIndex: _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
+        showFab: _navIndex != 2,
         onFabPressed: () => _showQuickAddTaskSheet(context),
       ),
     );
@@ -139,27 +154,74 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             // ── Folder List ──────────────────────────────────────
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final folder = provider.folders[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    child: FolderCard(
-                      folder: folder,
-                      initiallyExpanded: index < 2,
-                      onToggleTask: (taskId) {
-                        provider.toggleTask(folder.id, taskId);
-                      },
-                      onAddTask: () =>
-                          _showAddTaskSheet(context, folderId: folder.id),
+            if (provider.folders.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.15),
+                        width: 1.5,
+                      ),
                     ),
-                  );
-                },
-                childCount: provider.folders.length,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.folder_open_rounded,
+                          size: 48,
+                          color: AppColors.primary.withOpacity(0.35),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Belum ada pelajaran',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tekan tombol + untuk menambahkan\nfolder pelajaran pertamamu',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: AppColors.textGrey,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final folder = provider.folders[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      child: FolderCard(
+                        folder: folder,
+                        initiallyExpanded: index < 2,
+                        onToggleTask: (taskId) {
+                          provider.toggleTask(folder.id, taskId);
+                        },
+                        onAddTask: () =>
+                            _showAddTaskSheet(context, folderId: folder.id),
+                      ),
+                    );
+                  },
+                  childCount: provider.folders.length,
+                ),
               ),
-            ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
@@ -183,33 +245,51 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.primary,
             ),
           ),
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationsScreen(),
+          Consumer<TaskService>(
+            builder: (context, provider, _) {
+              // Update badge state berdasarkan data terbaru
+              final hasNotif = _computeHasNotifications(provider);
+              // Set _hasUnread ke true jika ada notif baru (tidak reset saat provider update)
+              if (hasNotif && !_hasUnread) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => setState(() => _hasUnread = true));
+              } else if (!hasNotif && _hasUnread) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                    (_) => setState(() => _hasUnread = false));
+              }
+              return GestureDetector(
+                onTap: () async {
+                  // Tandai sudah dibaca sebelum buka halaman
+                  setState(() => _hasUnread = false);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_outlined,
+                        color: AppColors.primary, size: 28),
+                    if (_hasUnread)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF7C3AED),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               );
             },
-            child: Stack(
-              children: [
-                const Icon(Icons.notifications_outlined,
-                    color: AppColors.primary, size: 28),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF7C3AED),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

@@ -2,10 +2,12 @@
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
 import '../models/task_model.dart';
 import 'api_client.dart';
+import 'notification_service.dart';
 
 typedef TodayDeadlineItem = ({String folderName, TaskModel task});
 
@@ -67,9 +69,10 @@ class TaskService extends ChangeNotifier {
     required String title,
     DateTime? deadline,
     String? priority,
+    int? reminderOffsetMinutes,
   }) async {
     try {
-      await _dio.post(
+      final resp = await _dio.post(
         ApiEndpoints.createTask,
         data: {
           'name': title,
@@ -80,6 +83,37 @@ class TaskService extends ChangeNotifier {
             'priority': _normalizePriority(priority),
         },
       );
+
+      // Ambil ID task yang berhasil dibuat dari response
+      String? taskId;
+      try {
+        final data = resp.data;
+        final map = _asMap(data is Map && data['data'] != null ? data['data'] : data);
+        if (map.isNotEmpty) {
+          taskId = (map['id'] ?? map['_id'] ?? '').toString();
+        }
+      } catch (_) {}
+
+      if (taskId != null && taskId.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        if (reminderOffsetMinutes != null) {
+          await prefs.setInt('reminder_offset_$taskId', reminderOffsetMinutes);
+          
+          final folder = _folders.firstWhere(
+            (f) => f.id == folderId,
+            orElse: () => FolderModel(id: '', name: 'Tugas'),
+          );
+          if (deadline != null) {
+            await NotificationService.instance.scheduleTaskReminder(
+              id: taskId,
+              title: title,
+              folderName: folder.name,
+              deadline: deadline,
+              offsetMinutes: reminderOffsetMinutes,
+            );
+          }
+        }
+      }
 
       await loadDashboard();
     } on DioException catch (e) {
@@ -133,6 +167,10 @@ class TaskService extends ChangeNotifier {
     }
 
     try {
+      await NotificationService.instance.cancelTaskReminder(taskId);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('reminder_offset_$taskId');
+      
       await _dio.delete(ApiEndpoints.deleteTask.replaceAll(':id', taskId));
     } on DioException catch (e) {
       if (removed != null && found != null) {
@@ -156,6 +194,7 @@ class TaskService extends ChangeNotifier {
     required String title,
     DateTime? deadline,
     String? priority,
+    int? reminderOffsetMinutes,
   }) async {
     try {
       final lookup = _findTask(taskId: taskId);
@@ -178,6 +217,30 @@ final resp = await _dio.patch(
       'priority': _normalizePriority(priority),
   },
 );
+
+      final prefs = await SharedPreferences.getInstance();
+      if (reminderOffsetMinutes != null) {
+        await prefs.setInt('reminder_offset_$taskId', reminderOffsetMinutes);
+      } else {
+        await prefs.remove('reminder_offset_$taskId');
+      }
+
+      // Atur ulang notifikasi
+      if (lookup != null) {
+        final folder = _folders[lookup.folderIndex];
+        final updatedDeadline = deadline ?? lookup.task.deadline;
+        if (updatedDeadline != null && reminderOffsetMinutes != null && !isDone) {
+          await NotificationService.instance.scheduleTaskReminder(
+            id: taskId,
+            title: title,
+            folderName: folder.name,
+            deadline: updatedDeadline,
+            offsetMinutes: reminderOffsetMinutes,
+          );
+        } else {
+          await NotificationService.instance.cancelTaskReminder(taskId);
+        }
+      }
 
       final status = resp.statusCode ?? 0;
       if (status == 200 || status == 201 || status == 204) {
@@ -215,12 +278,44 @@ final resp = await _dio.patch(
     }
   }
 
+  Future<void> deleteFolder(String folderId) async {
+    final folderIndex = _folders.indexWhere((f) => f.id == folderId);
+    if (folderIndex == -1) return;
+
+    final folder = _folders[folderIndex];
+
+    // Hapus tugas-tugas di dalamnya di backend & cancel reminder
+    for (final task in folder.tasks) {
+      try {
+        await NotificationService.instance.cancelTaskReminder(task.id);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('reminder_offset_${task.id}');
+        await _dio.delete(ApiEndpoints.deleteTask.replaceAll(':id', task.id));
+      } catch (e) {
+        debugPrint('Gagal hapus tugas ${task.id} saat hapus folder: $e');
+      }
+    }
+
+    // Simpan ke list folder yang didelete
+    final prefs = await SharedPreferences.getInstance();
+    final deletedFolders = prefs.getStringList('deleted_folders') ?? [];
+    if (!deletedFolders.contains(folderId)) {
+      deletedFolders.add(folderId);
+      await prefs.setStringList('deleted_folders', deletedFolders);
+    }
+
+    await loadDashboard();
+  }
+
   Future<void> _fetchFolders() async {
     _folders.clear();
 
     try {
       final resp = await _dio.get(ApiEndpoints.listMatkul);
       final listData = _extractList(resp.data);
+
+      final prefs = await SharedPreferences.getInstance();
+      final deletedFolders = prefs.getStringList('deleted_folders') ?? [];
 
       for (final item in listData) {
         final json = _asMap(item);
@@ -231,6 +326,7 @@ final resp = await _dio.patch(
         final tag = _readString(json, const ['tag', 'label', 'day']);
 
         if (id.isEmpty || name.isEmpty) continue;
+        if (deletedFolders.contains(id)) continue;
         if (_folders.any((f) => f.id == id)) continue;
 
         _folders.add(
@@ -254,18 +350,30 @@ final resp = await _dio.patch(
     final resp = await _dio.get(ApiEndpoints.listTasks);
     final listData = _extractList(resp.data);
     FolderModel? uncategorized;
+    final prefs = await SharedPreferences.getInstance();
+    final deletedFolders = prefs.getStringList('deleted_folders') ?? [];
 
     for (final item in listData) {
       final json = _asMap(item);
       if (json.isEmpty) continue;
 
-      final task = TaskModel.fromJson(json);
+      var task = TaskModel.fromJson(json);
       if (task.id.isEmpty || task.title.isEmpty) continue;
 
       final folderId = _readString(
         json,
         const ['matkul_id', 'matkulId', 'folder_id', 'category_id'],
       );
+
+      if (folderId != null && deletedFolders.contains(folderId)) {
+        continue;
+      }
+
+      // Baca pilihan reminder lokal dari shared preferences
+      final offset = prefs.getInt('reminder_offset_${task.id}');
+      if (offset != null) {
+        task = task.copyWith(reminderOffsetMinutes: offset);
+      }
       final folderName = _readString(
         json,
         const ['matkul_name', 'matkulName', 'folder_name', 'category_name'],
@@ -297,10 +405,6 @@ final resp = await _dio.patch(
 
     if (uncategorized != null && uncategorized.tasks.isNotEmpty) {
       _folders.add(uncategorized);
-    }
-
-    if (_folders.isEmpty) {
-      _folders.add(FolderModel(id: 'uncategorized', name: 'Semua Tugas'));
     }
 
     notifyListeners();
@@ -408,13 +512,41 @@ final resp = await _dio.patch(
       },
     );
 
+    if (isDone) {
+      await NotificationService.instance.cancelTaskReminder(taskId);
+    } else {
+      final lookup = _findTask(taskId: taskId);
+      if (lookup != null && lookup.task.deadline != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final offset = prefs.getInt('reminder_offset_$taskId');
+        if (offset != null) {
+          final folder = _folders[lookup.folderIndex];
+          await NotificationService.instance.scheduleTaskReminder(
+            id: taskId,
+            title: lookup.task.title,
+            folderName: folder.name,
+            deadline: lookup.task.deadline!,
+            offsetMinutes: offset,
+          );
+        }
+      }
+    }
+
     // If API returns updated task object, apply it to local model to avoid desync
     try {
       final data = resp.data;
       final map =
           _asMap(data is Map && data['data'] != null ? data['data'] : data);
       if (map.isNotEmpty) {
-        final updated = TaskModel.fromJson(map);
+        var updated = TaskModel.fromJson(map);
+        
+        // Tetap pertahankan reminderOffsetMinutes lokal
+        final prefs = await SharedPreferences.getInstance();
+        final offset = prefs.getInt('reminder_offset_$taskId');
+        if (offset != null) {
+          updated = updated.copyWith(reminderOffsetMinutes: offset);
+        }
+        
         final lookup = _findTask(taskId: taskId);
         if (lookup != null) {
           _folders[lookup.folderIndex].tasks[lookup.taskIndex] = updated;

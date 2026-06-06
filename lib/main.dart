@@ -16,6 +16,7 @@ import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'services/task_service.dart';
 
 void main() async {
@@ -23,6 +24,8 @@ void main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initializeDateFormatting('id_ID', null);
   ApiClient.instance.init();
+  await NotificationService.instance.init();
+  await NotificationService.instance.requestPermissions();
   runApp(const FocusFlowApp());
 }
 

@@ -109,6 +109,49 @@ class _FolderCardState extends State<FolderCard>
                     ),
                   ),
 
+                  // Delete Folder Button
+                  if (folder.id != 'uncategorized') ...[
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Hapus Pelajaran'),
+                            content: Text(
+                                'Yakin ingin menghapus pelajaran "${folder.name}"? Semua tugas di dalamnya juga akan terhapus.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Batal'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Hapus',
+                                    style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && context.mounted) {
+                          await context.read<TaskService>().deleteFolder(folder.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Pelajaran "${folder.name}" berhasil dihapus')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+
                   // Count
                   Text(
                     '${folder.taskCount}',
@@ -281,11 +324,15 @@ class _TaskRow extends StatelessWidget {
                   if (newTitle.isEmpty) return;
                   try {
                     await service.updateTask(taskId: task.id, title: newTitle);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tugas diperbarui')));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Tugas diperbarui')));
+                    }
                   } catch (_) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Gagal update tugas')));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Gagal update tugas')));
+                    }
                   }
                 }
               },
@@ -312,11 +359,15 @@ class _TaskRow extends StatelessWidget {
                 if (confirm == true) {
                   try {
                     await service.deleteTask(task.id, folderId: folderId);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Tugas berhasil dihapus')));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Tugas berhasil dihapus')));
+                    }
                   } catch (_) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Gagal hapus tugas')));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Gagal hapus tugas')));
+                    }
                   }
                 }
               },

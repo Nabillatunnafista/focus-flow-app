@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants.dart';
@@ -208,15 +209,16 @@ class AuthService extends ChangeNotifier {
   // ─────────────────────────────────────────
   // UPLOAD AVATAR
   // ─────────────────────────────────────────
-  Future<String?> uploadAvatar(File imageFile) async {
+  Future<String?> uploadAvatar(XFile imageFile) async {
     _setLoading(true);
     _error = null;
 
     try {
+      final bytes = await imageFile.readAsBytes();
       final formData = FormData.fromMap({
-        'avatar': await MultipartFile.fromFile(
-          imageFile.path,
-          filename: imageFile.path.split('/').last,
+        'avatar': MultipartFile.fromBytes(
+          bytes,
+          filename: imageFile.name,
         ),
       });
 

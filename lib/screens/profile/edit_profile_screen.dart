@@ -170,7 +170,7 @@ class _AvatarSectionState extends State<_AvatarSection> {
       });
 
       final auth = context.read<AuthService>();
-      final err = await auth.uploadAvatar(file);
+      final err = await auth.uploadAvatar(picked);
 
       if (!mounted) return;
       setState(() => _uploading = false);
@@ -193,8 +193,21 @@ class _AvatarSectionState extends State<_AvatarSection> {
         setState(() => _localImage = null);
       }
     } catch (e) {
+      debugPrint('ERROR PICK IMAGE: $e');
       if (!mounted) return;
       setState(() => _uploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal memilih gambar: $e',
+            style: GoogleFonts.poppins(),
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
     }
   }
 

@@ -23,7 +23,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   String? _selectedFolderId;
   DateTime? _selectedDate;
   String? _selectedPriority;
-  bool _hasReminder = false;
+  int? _selectedReminderOffset;
 
   @override
   void initState() {
@@ -60,6 +60,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
             title: title,
             deadline: _selectedDate,
             priority: _selectedPriority,
+            reminderOffsetMinutes: _selectedReminderOffset,
           );
       if (!mounted) return;
       Navigator.pop(context);
@@ -200,9 +201,11 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                   const SizedBox(width: 8),
                   _ActionChip(
                     icon: Icons.alarm_outlined,
-                    label: 'Reminder',
-                    isActive: _hasReminder,
-                    onTap: () => setState(() => _hasReminder = !_hasReminder),
+                    label: _selectedReminderOffset != null
+                        ? _formatReminderLabel(_selectedReminderOffset!)
+                        : 'Reminder',
+                    isActive: _selectedReminderOffset != null,
+                    onTap: () => _showReminderPicker(),
                   ),
                 ],
               ),
@@ -282,6 +285,71 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  String _formatReminderLabel(int minutes) {
+    if (minutes == 60) return '1 jam sebelum';
+    if (minutes == 180) return '3 jam sebelum';
+    if (minutes == 1440) return '1 hari sebelum';
+    if (minutes == 4320) return '3 hari sebelum';
+    return '$minutes menit sebelum';
+  }
+
+  void _showReminderPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pilih Pengingat',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildReminderOption('Tidak ada', null),
+            _buildReminderOption('1 jam sebelum deadline', 60),
+            _buildReminderOption('3 jam sebelum deadline', 180),
+            _buildReminderOption('1 hari sebelum deadline', 1440),
+            _buildReminderOption('3 hari sebelum deadline', 4320),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReminderOption(String label, int? offset) {
+    final isSelected = _selectedReminderOffset == offset;
+    return ListTile(
+      leading: Icon(
+        offset == null ? Icons.alarm_off_outlined : Icons.alarm_outlined,
+        color: isSelected ? AppColors.primary : AppColors.textGrey,
+      ),
+      title: Text(
+        label,
+        style: GoogleFonts.poppins(
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          color: isSelected ? AppColors.primary : AppColors.textDark,
+        ),
+      ),
+      trailing: isSelected
+          ? const Icon(Icons.check_rounded, color: AppColors.primary)
+          : null,
+      onTap: () {
+        setState(() => _selectedReminderOffset = offset);
+        Navigator.pop(context);
+      },
     );
   }
 }

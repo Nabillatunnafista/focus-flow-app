@@ -6,12 +6,14 @@ class FocusFlowBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final VoidCallback onFabPressed;
+  final bool showFab;
 
   const FocusFlowBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
     required this.onFabPressed,
+    this.showFab = true,
   });
 
   @override
@@ -64,37 +66,38 @@ class FocusFlowBottomNav extends StatelessWidget {
             ),
           ),
 
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: GestureDetector(
-                onTap: onFabPressed,
-                child: Container(
-                  width: 62,
-                  height: 62,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 38,
+          if (showFab)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: onFabPressed,
+                  child: Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 38,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
