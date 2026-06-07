@@ -1,5 +1,6 @@
 // lib/screens/home/widgets/deadline_card.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme.dart';
 import '../../../models/task_model.dart';
 
-class DeadlineCard extends StatelessWidget {
+class DeadlineCard extends StatefulWidget {
   final String folderName;
   final TaskModel task;
   final VoidCallback onDone;
@@ -19,12 +20,36 @@ class DeadlineCard extends StatelessWidget {
     required this.onDone,
   });
 
+  @override
+  State<DeadlineCard> createState() => _DeadlineCardState();
+}
+
+class _DeadlineCardState extends State<DeadlineCard> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // TIMER PERIODIC: Memaksa widget update tampilan setiap 1 menit secara otomatis
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Hapus timer saat halaman ditinggalkan agar hemat memori baterai
+    super.dispose();
+  }
+
   /// Format: "Selasa, 21 April 2026 - 23:59"
   String _formatDeadline(DateTime dt) {
     return DateFormat("EEEE, d MMMM yyyy - HH:mm", "id_ID").format(dt);
   }
 
-  /// Countdown badge: "2 jam lagi", "30 menit lagi", "Terlambat!"
+  /// Perhitungan mundur yang otomatis ter-update real-time oleh timer
   String _countdown(DateTime deadline) {
     final diff = deadline.difference(DateTime.now());
     if (diff.isNegative) return 'Terlambat!';
@@ -44,7 +69,7 @@ class DeadlineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dl = task.deadline;
+    final dl = widget.task.deadline;
     final deadlineStr = dl != null ? _formatDeadline(dl) : '';
     final countdown = dl != null ? _countdown(dl) : null;
     final countdownColor = dl != null ? _countdownColor(dl) : Colors.grey;
@@ -53,11 +78,11 @@ class DeadlineCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.07),
+            color: AppColors.primary.withOpacity(0.07),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -66,13 +91,13 @@ class DeadlineCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Nama tugas + badge countdown ──────────────────
+          // ── Nama Mata Kuliah + Badge Countdown ──────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Text(
-                  folderName,
+                  widget.folderName,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -80,13 +105,12 @@ class DeadlineCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (countdown != null && !task.isDone) ...[
+              if (countdown != null && !widget.task.isDone) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: countdownColor.withValues(alpha: 0.12),
+                    color: countdownColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -104,16 +128,28 @@ class DeadlineCard extends StatelessWidget {
 
           const SizedBox(height: 6),
 
-          // ── Tanggal + jam deadline ────────────────────────
+          // ── Judul / Deskripsi Tugas ───────────────────────
+          Text(
+            widget.task.title,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textDark,
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // ── Tanggal + Jam Tenggat ────────────────────────
           if (deadlineStr.isNotEmpty)
             Row(
               children: [
                 Icon(Icons.event_rounded,
-                    size: 13, color: AppColors.secondary.withValues(alpha: 0.8)),
+                    size: 13, color: AppColors.secondary.withOpacity(0.8)),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Deadline : $deadlineStr',
+                    'Tenggat: $deadlineStr',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textGrey,
@@ -123,27 +159,12 @@ class DeadlineCard extends StatelessWidget {
               ],
             ),
 
-          Row(
-            children: [
-              Icon(Icons.send_rounded,
-                  size: 13, color: AppColors.secondary.withValues(alpha: 0.8)),
-              const SizedBox(width: 4),
-              Text(
-                'Pengumpulan : classroom',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: AppColors.textGrey,
-                ),
-              ),
-            ],
-          ),
-
           const SizedBox(height: 12),
 
-          // ── Tombol selesai ────────────────────────────────
+          // ── Tombol Selesai ────────────────────────────────
           Align(
             alignment: Alignment.centerRight,
-            child: task.isDone
+            child: widget.task.isDone
                 ? Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 8),
@@ -161,7 +182,7 @@ class DeadlineCard extends StatelessWidget {
                     ),
                   )
                 : ElevatedButton(
-                    onPressed: onDone,
+                    onPressed: widget.onDone,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,

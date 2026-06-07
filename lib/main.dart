@@ -1,8 +1,9 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // Import lokalisasi resmi Flutter
 
 import 'core/constants.dart';
 import 'core/theme.dart';
@@ -22,7 +23,10 @@ import 'services/task_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  
+  // Inisialisasi data format tanggal bahasa Indonesia
   await initializeDateFormatting('id_ID', null);
+  
   ApiClient.instance.init();
   await NotificationService.instance.init();
   await NotificationService.instance.requestPermissions();
@@ -43,6 +47,19 @@ class FocusFlowApp extends StatelessWidget {
         title: AppStrings.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
+        
+        // ── KONFIGURASI LOCALE BAHASA INDONESIA ──────────────────
+        locale: const Locale('id', 'ID'),
+        supportedLocales: const [
+          Locale('id', 'ID'),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        // ──────────────────────────────────────────────────────────
+        
         initialRoute: AppRoutes.splash,
         routes: {
           AppRoutes.splash: (_) => const SplashScreen(),

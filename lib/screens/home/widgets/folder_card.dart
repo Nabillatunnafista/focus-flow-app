@@ -2,11 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme.dart';
 import '../../../models/task_model.dart';
-import 'package:provider/provider.dart';
 import '../../../services/task_service.dart';
+import 'edit_task_screen.dart'; // Menghubungkan ke form halaman penuh yang baru
 
 class FolderCard extends StatefulWidget {
   final FolderModel folder;
@@ -78,7 +79,7 @@ class _FolderCardState extends State<FolderCard>
       ),
       child: Column(
         children: [
-          // ── Header Row ───────────────────────────────────
+          // ── Header Row (Tetap Utuh) ───────────────────────────────────
           InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: _toggle,
@@ -109,7 +110,7 @@ class _FolderCardState extends State<FolderCard>
                     ),
                   ),
 
-                  // Delete Folder Button
+                  // Delete Folder Button (Tetap Utuh)
                   if (folder.id != 'uncategorized') ...[
                     IconButton(
                       icon: const Icon(
@@ -177,7 +178,7 @@ class _FolderCardState extends State<FolderCard>
             ),
           ),
 
-          // ── Expanded Content ─────────────────────────────
+          // ── Expanded Content (Animasi Transisi Tetap Utuh) ─────────────────────────────
           AnimatedCrossFade(
             firstChild: const SizedBox(width: double.infinity),
             secondChild: Column(
@@ -202,8 +203,8 @@ class _FolderCardState extends State<FolderCard>
                     ),
                   ),
 
-                // Task rows
-                ...folder.tasks.map(
+                // Task rows (Gunakan toSet().toList() secara aman untuk mencegah render duplikat)
+                ...folder.tasks.toSet().toList().map(
                   (task) => _TaskRow(
                     folderId: folder.id,
                     task: task,
@@ -211,7 +212,7 @@ class _FolderCardState extends State<FolderCard>
                   ),
                 ),
 
-                // Add task button
+                // Add task button (Tetap Utuh)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
                   child: Row(
@@ -249,137 +250,84 @@ class _FolderCardState extends State<FolderCard>
   }
 }
 
-// ─── TASK ROW ────────────────────────────────────────────────
+// ─── TASK ROW (FIKS DESAIN IKON ESTETIK & TIDAK DOBEL) ────────────────
 class _TaskRow extends StatelessWidget {
   final String folderId;
   final TaskModel task;
   final VoidCallback onToggle;
 
-  const _TaskRow(
-      {required this.folderId, required this.task, required this.onToggle});
+  const _TaskRow({
+    required this.folderId, 
+    required this.task, 
+    required this.onToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final service = context.read<TaskService>();
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      child: Row(
-        children: [
-          Transform.scale(
-            scale: 0.9,
-            child: Checkbox(
-              value: task.isDone,
-              onChanged: (_) => onToggle(),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
-              side: BorderSide(
-                color: AppColors.primary.withOpacity(0.4),
-                width: 1.5,
-              ),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              task.title,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: task.isDone ? AppColors.textGrey : AppColors.textDark,
-                decoration: task.isDone
-                    ? TextDecoration.lineThrough
-                    : TextDecoration.none,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EditTaskScreen(
+                currentFolderId: folderId,
+                task: task,
               ),
             ),
+          );
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            children: [
+              Transform.scale(
+                scale: 0.9,
+                child: Checkbox(
+                  value: task.isDone,
+                  onChanged: (_) => onToggle(),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                  side: BorderSide(
+                    color: AppColors.primary.withOpacity(0.4),
+                    width: 1.5,
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: task.isDone ? AppColors.textGrey : AppColors.textDark,
+                    decoration: task.isDone
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
+                  ),
+                ),
+              ),
+
+              // PERBAIKAN VISUAL: Menggunakan ikon edit modern yang jauh lebih bersih dan estetik
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppColors.textGrey.withOpacity(0.5),
+                  size: 14,
+                ),
+              ),
+            ],
           ),
-
-          // show edit + delete only when task is done
-          if (task.isDone) ...[
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.purple),
-              onPressed: () async {
-                final controller = TextEditingController(text: task.title);
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Edit Tugas'),
-                    content: TextField(
-                      controller: controller,
-                      decoration:
-                          const InputDecoration(hintText: 'Judul tugas'),
-                    ),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Batal')),
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Simpan')),
-                    ],
-                  ),
-                );
-
-                if (ok == true) {
-                  final newTitle = controller.text.trim();
-                  if (newTitle.isEmpty) return;
-                  try {
-                    await service.updateTask(taskId: task.id, title: newTitle);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Tugas diperbarui')));
-                    }
-                  } catch (_) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Gagal update tugas')));
-                    }
-                  }
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Hapus Tugas'),
-                    content: const Text('Yakin ingin menghapus tugas ini?'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Batal')),
-                      TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Hapus')),
-                    ],
-                  ),
-                );
-
-                if (confirm == true) {
-                  try {
-                    await service.deleteTask(task.id, folderId: folderId);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Tugas berhasil dihapus')));
-                    }
-                  } catch (_) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Gagal hapus tugas')));
-                    }
-                  }
-                }
-              },
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─── TAG CHIP ────────────────────────────────────────────────
+// ─── TAG CHIP (Tetap Utuh) ────────────────────────────────────────────────
 class _TagChip extends StatelessWidget {
   final String label;
   final Color color;

@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../services/task_service.dart';
 import '../../widgets/bottom_nav.dart';
 import '../calendar/calendar_screen.dart';
+import '../deadlines/all_deadlines_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../tasks/task_list_screen.dart';
@@ -40,6 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _computeHasNotifications(TaskService provider) {
     final now = DateTime.now();
     for (final folder in provider.folders) {
+      if (folder.name == 'Belum Dikelompokkan') continue;
+
       for (final task in folder.tasks) {
         if (task.deadline == null || task.isDone) continue;
         final diff = task.deadline!.difference(now);
@@ -68,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: FocusFlowBottomNav(
         currentIndex: _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
-        showFab: _navIndex != 2,
+        showFab: true,
         onFabPressed: () => _showQuickAddTaskSheet(context),
       ),
     );
@@ -78,7 +81,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeBody() {
     return Consumer<TaskService>(
       builder: (context, provider, _) {
-        final deadlines = provider.todayDeadlines;
+        final deadlines = [...provider.todayDeadlines];
+        deadlines.sort(
+          (a, b) => (a.task.deadline ?? DateTime(2100))
+              .compareTo(b.task.deadline ?? DateTime(2100)),
+        );
+
+        final visibleDeadlines = deadlines.take(3).toList();
+
+        final filteredFolders = provider.folders
+            .where((folder) => folder.name != 'Belum Dikelompokkan')
+            .toList();
 
         if (provider.isLoading && provider.folders.isEmpty) {
           return const Center(
@@ -87,26 +100,45 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         return CustomScrollView(
+          physics: const BouncingScrollPhysics(),
           slivers: [
-            // ── Header ──────────────────────────────────────────
             SliverToBoxAdapter(child: _buildHeader(context)),
 
-            // ── Deadline Section ────────────────────────────────
             SliverToBoxAdapter(
-              child: _buildSectionTitle('Deadline Hari Ini'),
+              child: _buildSectionTitle(
+                'Tenggat Terdekat',
+                trailing: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AllDeadlinesScreen(),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Lihat Semua',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
             ),
 
-            if (deadlines.isNotEmpty)
+            if (visibleDeadlines.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: DeadlineCard(
                     folderName:
-                        deadlines[_deadlineIndex % deadlines.length].folderName,
-                    task: deadlines[_deadlineIndex % deadlines.length].task,
+                        visibleDeadlines[_deadlineIndex % visibleDeadlines.length].folderName,
+                    task: visibleDeadlines[_deadlineIndex % visibleDeadlines.length].task,
                     onDone: () {
                       final item =
-                          deadlines[_deadlineIndex % deadlines.length];
+                          visibleDeadlines[_deadlineIndex % visibleDeadlines.length];
                       provider.markTaskDoneById(item.task.id);
                     },
                   ),
@@ -134,7 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-            // ── Daftar Pelajaran Title ───────────────────────────
             SliverToBoxAdapter(
               child: _buildSectionTitle(
                 'Daftar Pelajaran',
@@ -143,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     width: 30,
                     height: 30,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
@@ -153,8 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ── Folder List ──────────────────────────────────────
-            if (provider.folders.isEmpty)
+            if (filteredFolders.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -204,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final folder = provider.folders[index];
+                    final folder = filteredFolders[index];
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
@@ -219,7 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   },
-                  childCount: provider.folders.length,
+                  childCount: filteredFolders.length,
                 ),
               ),
 
@@ -237,19 +267,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Hari ini',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w800,
-              fontSize: 26,
-              color: AppColors.primary,
+          Expanded(
+            child: Text(
+              'Hari ini',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w800,
+                fontSize: 26,
+                color: AppColors.primary,
+              ),
             ),
           ),
           Consumer<TaskService>(
             builder: (context, provider, _) {
-              // Update badge state berdasarkan data terbaru
               final hasNotif = _computeHasNotifications(provider);
-              // Set _hasUnread ke true jika ada notif baru (tidak reset saat provider update)
               if (hasNotif && !_hasUnread) {
                 WidgetsBinding.instance.addPostFrameCallback(
                     (_) => setState(() => _hasUnread = true));
@@ -259,7 +289,6 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               return GestureDetector(
                 onTap: () async {
-                  // Tandai sudah dibaca sebelum buka halaman
                   setState(() => _hasUnread = false);
                   await Navigator.push(
                     context,
@@ -296,22 +325,30 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ─── SECTION TITLE ───────────────────────────────────────────
+  // ─── SECTION TITLE (FIKS RESPONSIF OVERFLOW) ─────────────────
   Widget _buildSectionTitle(String title, {Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              fontSize: 16,
-              color: AppColors.primary,
+          // FIKS UTAMA: Membungkus judul teks dengan Expanded agar ukurannya otomatis fleksibel dan tidak menabrak tombol samping
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: AppColors.primary,
+              ),
             ),
           ),
-          if (trailing != null) trailing,
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            trailing,
+          ],
         ],
       ),
     );

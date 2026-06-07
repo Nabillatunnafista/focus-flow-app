@@ -1,4 +1,4 @@
-// lib/screens/home/widgets/date_time_picker_sheet.dart
+// lib/screens/home/widgets/date_time_picker_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,64 +6,73 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 
-/// Menampilkan bottom sheet untuk memilih tanggal + jam deadline.
-/// Mengembalikan [DateTime] yang sudah include jam, atau null jika dibatalkan.
-Future<DateTime?> showDateTimePickerSheet(
+/// Membuka halaman pemilih tanggal & waktu secara Full Screen Dialog.
+/// Mengembalikan [DateTime] lengkap atau null jika dihapus/dibatalkan.
+Future<DateTime?> showDateTimePickerScreen(
   BuildContext context, {
   DateTime? initial,
 }) {
-  return showModalBottomSheet<DateTime>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _DateTimePickerSheet(initial: initial),
+  return Navigator.push<DateTime>(
+    context,
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => DateTimePickerScreen(initial: initial),
+    ),
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-class _DateTimePickerSheet extends StatefulWidget {
+class DateTimePickerScreen extends StatefulWidget {
   final DateTime? initial;
-  const _DateTimePickerSheet({this.initial});
+  const DateTimePickerScreen({super.key, this.initial});
 
   @override
-  State<_DateTimePickerSheet> createState() => _DateTimePickerSheetState();
+  State<DateTimePickerScreen> createState() => _DateTimePickerScreenState();
 }
 
-class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
+class _DateTimePickerScreenState extends State<DateTimePickerScreen> {
   late DateTime _selectedDate;
   TimeOfDay? _selectedTime;
+  bool _isEditMode = false; // Flag untuk mengecek apakah ini data baru atau edit data lama
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _selectedDate = widget.initial ?? DateTime(now.year, now.month, now.day);
-    if (widget.initial != null &&
-        (widget.initial!.hour != 0 || widget.initial!.minute != 0)) {
-      _selectedTime =
-          TimeOfDay(hour: widget.initial!.hour, minute: widget.initial!.minute);
+    
+    if (widget.initial != null) {
+      _isEditMode = true;
+      _selectedDate = widget.initial!;
+      if (widget.initial!.hour != 0 || widget.initial!.minute != 0) {
+        _selectedTime = TimeOfDay(hour: widget.initial!.hour, minute: widget.initial!.minute);
+      }
+    } else {
+      _isEditMode = false;
+      _selectedDate = DateTime(now.year, now.month, now.day);
     }
   }
 
-  // ── Teks preview ──────────────────────────────────────────
+  // ── Preview Teks Atas ─────────────────────────────────────
   String get _previewText {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tomorrow = today.add(const Duration(days: 1));
     final d = _selectedDate;
+
     final dateLabel = d == today
         ? 'Hari ini'
         : d == tomorrow
             ? 'Besok'
-            : DateFormat('d MMM yyyy', 'id_ID').format(d);
+            : DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(d);
+
     if (_selectedTime != null) {
-      final jam = _selectedTime!.format(context);
-      return '$dateLabel jam $jam';
+      final menitStr = _selectedTime!.minute.toString().padLeft(2, '0');
+      final jamStr = _selectedTime!.hour.toString().padLeft(2, '0');
+      return '$dateLabel, Pukul $jamStr:$menitStr WIB';
     }
     return dateLabel;
   }
 
-  // ── Pilih waktu ───────────────────────────────────────────
+  // ── Fungsi Time Picker ─────────────────────────────────────
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
@@ -82,16 +91,54 @@ class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  // ── Shortcut tanggal ──────────────────────────────────────
+  // ── Shortcut Handler ──────────────────────────────────────
   void _applyShortcut(int daysFromNow) {
     final now = DateTime.now();
     setState(() {
-      _selectedDate =
-          DateTime(now.year, now.month, now.day + daysFromNow);
+      _selectedDate = DateTime(now.year, now.month, now.day + daysFromNow);
     });
   }
 
-  // ── Konfirmasi ────────────────────────────────────────────
+  // ── Fungsi Hapus dengan Alert Dialog Peringatan ────────────
+  Future<void> _handleDelete() async {
+    if (!_isEditMode) {
+      // Jika data memang belum dimasukkan sebelumnya, langsung tutup halaman (Batal)
+      Navigator.pop(context, null);
+      return;
+    }
+
+    // Jika sedang mengedit data lama, munculkan konfirmasi sebelum menghapus
+    final confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Hapus Tenggat',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: AppColors.primary),
+        ),
+        content: Text(
+          'Apakah kamu yakin ingin menghapus pengaturan tanggal dan waktu tenggat ini?',
+          style: GoogleFonts.poppins(color: AppColors.textDark, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Batal', style: GoogleFonts.poppins(color: AppColors.textGrey, fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Hapus', style: GoogleFonts.poppins(color: AppColors.error, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmDelete == true && mounted) {
+      Navigator.pop(context, null); // Kembalikan null untuk menghapus data di form utama
+    }
+  }
+
+  // ── Konfirmasi Simpan ─────────────────────────────────────
   void _confirm() {
     final time = _selectedTime ?? const TimeOfDay(hour: 23, minute: 59);
     final result = DateTime(
@@ -109,67 +156,67 @@ class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.92,
-      minChildSize: 0.6,
-      maxChildSize: 0.95,
-      builder: (_, scrollController) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFFEDE9F6),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F3FC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context, widget.initial), // Kembali tanpa merubah data lama
         ),
+        title: Text(
+          'Tanggal',
+          style: GoogleFonts.poppins(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+      ),
+      body: SafeArea(
         child: Column(
           children: [
-            // ── drag handle ─────────────────────────────────
-            const SizedBox(height: 10),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-
             Expanded(
               child: SingleChildScrollView(
-                controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Judul ──────────────────────────────
-                    Text(
-                      'Date',
-                      style: GoogleFonts.poppins(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
+                    // Preview Banner Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_calendar_rounded,
+                              color: AppColors.primary, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _previewText,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
-                    // ── Preview teks ───────────────────────
-                    Row(
-                      children: [
-                        const Icon(Icons.edit_outlined,
-                            color: AppColors.secondary, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          _previewText,
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: AppColors.secondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Divider(color: AppColors.secondary.withValues(alpha: 0.3)),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
 
-                    // ── Shortcut ───────────────────────────
+                    // ── SHORTCUT CARD TANPA SINGKATAN ───────────────────
                     Row(
                       children: [
                         _ShortcutBtn(
@@ -182,39 +229,36 @@ class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
                         _ShortcutBtn(
                           icon: Icons.wb_sunny_outlined,
                           label: 'Besok',
-                          isSelected: _selectedDate ==
-                              today.add(const Duration(days: 1)),
+                          isSelected: _selectedDate == today.add(const Duration(days: 1)),
                           onTap: () => _applyShortcut(1),
                         ),
                         const SizedBox(width: 8),
                         _ShortcutBtn(
                           icon: Icons.calendar_month_outlined,
-                          label: 'Minggu\ndepan',
-                          isSelected: _selectedDate ==
-                              today.add(const Duration(days: 7)),
+                          label: 'Minggu Depan', // Ditulis lengkap utuh
+                          isSelected: _selectedDate == today.add(const Duration(days: 7)),
                           onTap: () => _applyShortcut(7),
                         ),
                         const SizedBox(width: 8),
                         _ShortcutBtn(
                           icon: Icons.weekend_outlined,
-                          label: 'Pekan\nDepan',
-                          isSelected: _selectedDate ==
-                              today.add(const Duration(days: 14)),
+                          label: 'Pekan Depan', // Ditulis lengkap utuh
+                          isSelected: _selectedDate == today.add(const Duration(days: 14)),
                           onTap: () => _applyShortcut(14),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
 
-                    // ── Kalender ───────────────────────────
+                    // ── KALENDER CARD ───────────────────────────────
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.06),
+                            color: Colors.black.withOpacity(0.03),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -222,208 +266,124 @@ class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
                       ),
                       child: CalendarDatePicker(
                         initialDate: _selectedDate,
-                        firstDate: today,
+                        firstDate: DateTime(2020),
                         lastDate: DateTime(2030),
-                        onDateChanged: (d) =>
-                            setState(() => _selectedDate = d),
+                        onDateChanged: (d) => setState(() => _selectedDate = d),
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-                    // ── Waktu & Ulangi ─────────────────────
+                    // ── TIME PICKER CARD MODERN ───────────────────
                     Container(
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.05),
+                            color: Colors.black.withOpacity(0.02),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          // Waktu
-                          InkWell(
-                            onTap: _pickTime,
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(16)),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.secondary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.access_time_rounded,
-                                        color: AppColors.secondary, size: 18),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Waktu',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textDark,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    _selectedTime != null
-                                        ? _selectedTime!.format(context)
-                                        : 'Tidak ada',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 13,
-                                      color: _selectedTime != null
-                                          ? AppColors.primary
-                                          : AppColors.textGrey,
-                                      fontWeight: _selectedTime != null
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.chevron_right_rounded,
-                                      color: AppColors.textGrey, size: 18),
-                                ],
-                              ),
-                            ),
+                          const Icon(
+                            Icons.schedule_rounded,
+                            color: AppColors.secondary,
+                            size: 22,
                           ),
-                          Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                              color: Colors.grey.shade100),
-                          // Ulangi (placeholder)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                            child: Row(
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.secondary
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.repeat_rounded,
-                                      color: AppColors.secondary, size: 18),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Ulangi',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textDark,
-                                    ),
-                                  ),
-                                ),
                                 Text(
-                                  'Tidak ada',
+                                  'Waktu',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13,
+                                    fontSize: 11,
                                     color: AppColors.textGrey,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.chevron_right_rounded,
-                                    color: AppColors.textGrey, size: 18),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _selectedTime == null
+                                      ? 'Pilih Waktu'
+                                      : '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+                                  style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
                               ],
                             ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.keyboard_arrow_right, color: AppColors.textGrey),
+                            onPressed: _pickTime,
                           ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // ── Tombol Konfirmasi ──────────────────
-                    Row(
-                      children: [
-                        // Hapus
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context, null),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(
-                                  color: AppColors.primary.withValues(alpha: 0.3)),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            child: Text(
-                              'Hapus',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textGrey,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Simpan
-                        Expanded(
-                          flex: 2,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppColors.secondary, AppColors.primary],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(30),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                              onPressed: _confirm,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                              child: Text(
-                                'Simpan',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
+                    
+                    // Card Ulangi yang di bawah waktu sudah dihapus bersih dari sini
                   ],
                 ),
+              ),
+            ),
+
+            // ── FOOTER ACTION BUTTONS (DYNAMIC) ──────────────────────
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _handleDelete,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: _isEditMode ? AppColors.error.withOpacity(0.5) : Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        _isEditMode ? 'Hapus' : 'Batal', // Berubah dinamis tergantung kondisi data
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: _isEditMode ? AppColors.error : AppColors.textGrey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _confirm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Simpan',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -433,7 +393,7 @@ class _DateTimePickerSheetState extends State<_DateTimePickerSheet> {
   }
 }
 
-// ─── SHORTCUT BUTTON ─────────────────────────────────────────
+// ─── SHORTCUT COMPONENT ──────────────────────────────────────
 class _ShortcutBtn extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -454,32 +414,26 @@ class _ShortcutBtn extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    )
-                  ],
+            boxShadow: [
+              BoxShadow(
+                color: isSelected 
+                    ? AppColors.primary.withOpacity(0.25)
+                    : Colors.black.withOpacity(0.02),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              )
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
-                size: 22,
+                size: 20,
                 color: isSelected ? Colors.white : AppColors.secondary,
               ),
               const SizedBox(height: 4),
