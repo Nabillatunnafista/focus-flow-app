@@ -25,7 +25,7 @@ class ApiEndpoints {
   // ──── USER (Protected) ─────────────────────────────────────
   static const String me = '/me';
   static const String updateMe = '/me';
-  static const String changePassword = '/me/change-password';
+  static const String changePassword = '/change-password';
   static const String uploadAvatar = '/me/avatar';
 
   // ──── MATKUL / COURSES (Protected) ─────────────────────────
@@ -38,7 +38,8 @@ class ApiEndpoints {
   static const String tasks = '/tasks';
   static const String listTasks = '/tasks';
   static const String createTask = '/tasks';
-  static const String updateTask = '/tasks/:id';
+  static const String updateTask = '/tasks/:id';      // PATCH – hanya toggle is_done
+  static const String editTask = '/tasks/:id/toggle'; // PUT – edit title/deadline/priority
   static const String deleteTask = '/tasks/:id';
 
   // ──── DEADLINES (Protected) ────────────────────────────────

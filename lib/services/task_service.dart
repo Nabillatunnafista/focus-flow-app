@@ -104,13 +104,17 @@ class TaskService extends ChangeNotifier {
             orElse: () => FolderModel(id: '', name: 'Tugas'),
           );
           if (deadline != null) {
-            await NotificationService.instance.scheduleTaskReminder(
-              id: taskId,
-              title: title,
-              folderName: folder.name,
-              deadline: deadline,
-              offsetMinutes: reminderOffsetMinutes,
-            );
+            try {
+              await NotificationService.instance.scheduleTaskReminder(
+                id: taskId,
+                title: title,
+                folderName: folder.name,
+                deadline: deadline,
+                offsetMinutes: reminderOffsetMinutes,
+              );
+            } catch (e) {
+              debugPrint('Gagal menjadwalkan notifikasi: $e');
+            }
           }
         }
       }
@@ -201,6 +205,7 @@ class TaskService extends ChangeNotifier {
     required String priority,
     required bool isDone,
     required String folderId,
+    int? reminderOffsetMinutes,
   }) async {
     try {
       final formattedDeadline = deadline?.toIso8601String();
@@ -218,21 +223,29 @@ class TaskService extends ChangeNotifier {
         },
       );
 
-      // Konfigurasi ulang notifikasi pengingat lokal jika tenggat berubah
+      final prefs = await SharedPreferences.getInstance();
+      if (reminderOffsetMinutes != null) {
+        await prefs.setInt('reminder_offset_$taskId', reminderOffsetMinutes);
+      } else {
+        await prefs.remove('reminder_offset_$taskId');
+      }
+
+      // Konfigurasi ulang notifikasi pengingat lokal jika tenggat/offset berubah
       final lookup = _findTask(taskId: taskId);
       if (lookup != null) {
         final folder = _folders[lookup.folderIndex];
-        final prefs = await SharedPreferences.getInstance();
-        final offset = prefs.getInt('reminder_offset_$taskId');
-
-        if (deadline != null && offset != null && !isDone) {
-          await NotificationService.instance.scheduleTaskReminder(
-            id: taskId,
-            title: title,
-            folderName: folder.name,
-            deadline: deadline,
-            offsetMinutes: offset,
-          );
+        if (deadline != null && reminderOffsetMinutes != null && !isDone) {
+          try {
+            await NotificationService.instance.scheduleTaskReminder(
+              id: taskId,
+              title: title,
+              folderName: folder.name,
+              deadline: deadline,
+              offsetMinutes: reminderOffsetMinutes,
+            );
+          } catch (e) {
+            debugPrint('Gagal menjadwalkan notifikasi: $e');
+          }
         } else {
           await NotificationService.instance.cancelTaskReminder(taskId);
         }
@@ -262,16 +275,14 @@ class TaskService extends ChangeNotifier {
       final lookup = _findTask(taskId: taskId);
       final isDone = lookup?.task.isDone ?? false;
 
-      final resp = await _dio.patch(
-        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+      // Gunakan PUT /tasks/:id/toggle untuk edit title/deadline/priority
+      // (PATCH /tasks/:id hanya untuk toggle is_done)
+      final resp = await _dio.put(
+        ApiEndpoints.editTask.replaceAll(':id', taskId),
         data: {
-          'is_done': isDone,
-          'isDone': isDone,
-          'completed': isDone ? 1 : 0,
-          'status': isDone ? 'done' : 'pending',
-          'name': title,
           'title': title,
-          if (deadline != null) 'deadline': deadline.toIso8601String(),
+          'name': title,
+          if (deadline != null) 'deadline': deadline.toUtc().toIso8601String(),
           if (priority != null && priority.isNotEmpty)
             'priority': _normalizePriority(priority),
         },
@@ -289,13 +300,17 @@ class TaskService extends ChangeNotifier {
         final folder = _folders[lookup.folderIndex];
         final updatedDeadline = deadline ?? lookup.task.deadline;
         if (updatedDeadline != null && reminderOffsetMinutes != null && !isDone) {
-          await NotificationService.instance.scheduleTaskReminder(
-            id: taskId,
-            title: title,
-            folderName: folder.name,
-            deadline: updatedDeadline,
-            offsetMinutes: reminderOffsetMinutes,
-          );
+          try {
+            await NotificationService.instance.scheduleTaskReminder(
+              id: taskId,
+              title: title,
+              folderName: folder.name,
+              deadline: updatedDeadline,
+              offsetMinutes: reminderOffsetMinutes,
+            );
+          } catch (e) {
+            debugPrint('Gagal menjadwalkan notifikasi: $e');
+          }
         } else {
           await NotificationService.instance.cancelTaskReminder(taskId);
         }
@@ -510,10 +525,10 @@ class TaskService extends ChangeNotifier {
         apiItems.add((folderName: folderName, task: task));
       }
 
-      if (apiItems.isNotEmpty) {
-        _todayDeadlines
-          ..clear()
-          ..addAll(apiItems);
+      for (final apiItem in apiItems) {
+        if (!_todayDeadlines.any((element) => element.task.id == apiItem.task.id)) {
+          _todayDeadlines.add(apiItem);
+        }
       }
     } catch (e) {
       debugPrint('FETCH DEADLINES ERROR: $e');
@@ -584,13 +599,17 @@ class TaskService extends ChangeNotifier {
         final offset = prefs.getInt('reminder_offset_$taskId');
         if (offset != null) {
           final folder = _folders[lookup.folderIndex];
-          await NotificationService.instance.scheduleTaskReminder(
-            id: taskId,
-            title: lookup.task.title,
-            folderName: folder.name,
-            deadline: lookup.task.deadline!,
-            offsetMinutes: offset,
-          );
+          try {
+            await NotificationService.instance.scheduleTaskReminder(
+              id: taskId,
+              title: lookup.task.title,
+              folderName: folder.name,
+              deadline: lookup.task.deadline!,
+              offsetMinutes: offset,
+            );
+          } catch (e) {
+            debugPrint('Gagal menjadwalkan notifikasi: $e');
+          }
         }
       }
     }
@@ -694,9 +713,10 @@ class TaskService extends ChangeNotifier {
 
   bool _isToday(DateTime value) {
     final now = DateTime.now();
-    return value.year == now.year &&
-        value.month == now.month &&
-        value.day == now.day;
+    final localVal = value.toLocal();
+    return localVal.year == now.year &&
+        localVal.month == now.month &&
+        localVal.day == now.day;
   }
 
   String _normalizePriority(String? value) {

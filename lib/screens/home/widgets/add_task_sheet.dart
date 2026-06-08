@@ -44,20 +44,26 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
       initial: _selectedDate,
     );
     
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
-    }
+    setState(() {
+      _selectedDate = picked;
+      if (picked == null) {
+        _selectedReminderOffset = null;
+      }
+    });
   }
 
   Future<void> _submit() async {
     final title = _taskCtrl.text.trim();
     if (title.isEmpty || _selectedFolderId == null) return;
 
+    final now = DateTime.now();
+    final deadline = _selectedDate ?? DateTime(now.year, now.month, now.day, 23, 59);
+
     try {
       await context.read<TaskService>().addTask(
             folderId: _selectedFolderId!,
             title: title,
-            deadline: _selectedDate,
+            deadline: deadline,
             priority: _selectedPriority,
             reminderOffsetMinutes: _selectedReminderOffset,
           );
@@ -186,12 +192,6 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                   ),
                   const SizedBox(width: 8),
                   _ActionChip(
-                    icon: Icons.attach_file_outlined,
-                    label: 'Lampiran',
-                    onTap: () {},
-                  ),
-                  const SizedBox(width: 8),
-                  _ActionChip(
                     icon: Icons.flag_outlined,
                     label: _selectedPriority ?? 'Prioritas',
                     isActive: _selectedPriority != null,
@@ -296,6 +296,16 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   }
 
   void _showReminderPicker() {
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silakan pilih tanggal tenggat terlebih dahulu sebelum mengatur pengingat'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,

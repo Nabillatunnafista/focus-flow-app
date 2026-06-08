@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -187,10 +185,10 @@ class AuthService extends ChangeNotifier {
     _error = null;
 
     try {
-      await _dio.post(
+      await _dio.patch(
         ApiEndpoints.changePassword,
         data: {
-          'current_password': currentPassword,
+          'old_password': currentPassword,
           'new_password': newPassword,
         },
       );

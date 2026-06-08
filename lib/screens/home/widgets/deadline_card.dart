@@ -46,12 +46,12 @@ class _DeadlineCardState extends State<DeadlineCard> {
 
   /// Format: "Selasa, 21 April 2026 - 23:59"
   String _formatDeadline(DateTime dt) {
-    return DateFormat("EEEE, d MMMM yyyy - HH:mm", "id_ID").format(dt);
+    return DateFormat("EEEE, d MMMM yyyy - HH:mm", "id_ID").format(dt.toLocal());
   }
 
   /// Perhitungan mundur yang otomatis ter-update real-time oleh timer
   String _countdown(DateTime deadline) {
-    final diff = deadline.difference(DateTime.now());
+    final diff = deadline.toLocal().difference(DateTime.now());
     if (diff.isNegative) return 'Terlambat!';
     if (diff.inDays >= 1) return '${diff.inDays} hari lagi';
     if (diff.inHours >= 1) return '${diff.inHours} jam lagi';
@@ -60,7 +60,7 @@ class _DeadlineCardState extends State<DeadlineCard> {
   }
 
   Color _countdownColor(DateTime deadline) {
-    final diff = deadline.difference(DateTime.now());
+    final diff = deadline.toLocal().difference(DateTime.now());
     if (diff.isNegative) return Colors.red.shade600;
     if (diff.inHours < 1) return Colors.orange.shade700;
     if (diff.inHours < 3) return Colors.amber.shade700;

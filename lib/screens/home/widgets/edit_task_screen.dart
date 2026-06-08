@@ -30,7 +30,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   String? _selectedFolderId;
   DateTime? _selectedDateTime;
   String _selectedPriority = 'low'; // low, medium, high (sesuai backend Go kamu)
-  String _selectedReminder = '1 Jam Sebelum';
+  String _selectedReminder = 'Tidak Ada';
 
   @override
   void initState() {
@@ -39,6 +39,21 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     _selectedFolderId = widget.currentFolderId;
     _selectedDateTime = widget.task.deadline;
     _selectedPriority = widget.task.priority?.toLowerCase() ?? 'low';
+
+    final offset = widget.task.reminderOffsetMinutes;
+    if (offset == null) {
+      _selectedReminder = 'Tidak Ada';
+    } else if (offset == 60) {
+      _selectedReminder = '1 Jam Sebelum';
+    } else if (offset == 180) {
+      _selectedReminder = '3 Jam Sebelum';
+    } else if (offset == 1440) {
+      _selectedReminder = '1 Hari Sebelum';
+    } else if (offset == 4320) {
+      _selectedReminder = '3 Hari Sebelum';
+    } else {
+      _selectedReminder = 'Tidak Ada';
+    }
   }
 
   @override
@@ -170,6 +185,36 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedReminder != 'Tidak Ada' && _selectedDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silakan pilih tenggat terlebih dahulu sebelum mengatur pengingat'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    int? offset;
+    switch (_selectedReminder) {
+      case '1 Jam Sebelum':
+        offset = 60;
+        break;
+      case '3 Jam Sebelum':
+        offset = 180;
+        break;
+      case '1 Hari Sebelum':
+        offset = 1440;
+        break;
+      case '3 Hari Sebelum':
+        offset = 4320;
+        break;
+      case 'Tidak Ada':
+      default:
+        offset = null;
+        break;
+    }
+
     try {
       final taskService = context.read<TaskService>();
       
@@ -181,6 +226,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
         priority: _selectedPriority,
         isDone: widget.task.isDone,
         folderId: _selectedFolderId!,
+        reminderOffsetMinutes: offset,
       );
 
       if (!mounted) return;

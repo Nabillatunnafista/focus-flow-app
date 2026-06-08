@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Izin Akses Internet (Wajib untuk rilis) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <!-- Izin untuk akses galeri foto (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- Izin untuk akses galeri foto (Android < 13) -->
@@ -8,10 +11,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Izin notifikasi (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Izin untuk alarm presisi (Android 12+) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <application
         android:label="focus_flow"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

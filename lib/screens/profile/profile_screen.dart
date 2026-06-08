@@ -1,5 +1,7 @@
 // lib/screens/profile/profile_screen.dart
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,10 @@ import 'package:provider/provider.dart';
 import '../../core/constants.dart';
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/local_profile_service.dart';
+import '../info/bantuan_screen.dart';
+import '../info/ikuti_kami_screen.dart';
+import '../info/tentang_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -14,12 +20,18 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
-      builder: (context, auth, _) {
+    return Consumer2<AuthService, LocalProfileService>(
+      builder: (context, auth, localProfile, _) {
         final user = auth.currentUser;
-        final displayName =
+        final displayName = localProfile.displayName ??
             user?.name ?? user?.email.split('@').first ?? 'User';
         final email = user?.email ?? '';
+        // Baca avatar dari lokal
+        final localAvatarPath = localProfile.avatarPath;
+        final localAvatar = localAvatarPath != null
+            ? File(localAvatarPath)
+            : null;
+        final avatarFileExists = localAvatar?.existsSync() ?? false;
 
         return Scaffold(
           backgroundColor: const Color(0xFFEDE9F6),
@@ -48,12 +60,10 @@ class ProfileScreen extends StatelessWidget {
                         ],
                       ),
                       child: ClipOval(
-                        child: user?.avatarUrl != null
-                            ? Image.network(
-                                user!.avatarUrl!,
+                        child: avatarFileExists
+                            ? Image.file(
+                                localAvatar!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _DefaultAvatar(name: displayName),
                               )
                             : _DefaultAvatar(name: displayName),
                       ),
@@ -117,17 +127,29 @@ class ProfileScreen extends StatelessWidget {
                           _MenuItem(
                             icon: Icons.help_outline_rounded,
                             label: 'Bantuan & Umpan Balik',
-                            onTap: () {},
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const BantuanScreen()),
+                            ),
                           ),
                           _MenuItem(
                             icon: Icons.people_alt_outlined,
                             label: 'Ikuti Kami',
-                            onTap: () {},
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const IkutiKamiScreen()),
+                            ),
                           ),
                           _MenuItem(
                             icon: Icons.info_outline_rounded,
                             label: 'Tentang',
-                            onTap: () {},
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const TentangScreen()),
+                            ),
                             showDivider: false,
                           ),
                         ],

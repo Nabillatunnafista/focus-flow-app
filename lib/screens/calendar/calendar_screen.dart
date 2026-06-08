@@ -51,7 +51,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
         if (task.deadline == null) continue;
-        final d = task.deadline!;
+        final d = task.deadline!.toLocal();
         if (d.year == target.year && d.month == target.month && d.day == target.day) {
           list.add(task);
         }
@@ -68,7 +68,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
         if (task.deadline == null) continue;
-        final d = task.deadline!;
+        final d = task.deadline!.toLocal();
         if (d.year == _selectedDay.year && d.month == _selectedDay.month && d.day == _selectedDay.day) {
           
           final isBelajar = folder.name.toLowerCase().contains('belajar') || task.title.toLowerCase().contains('belajar');
@@ -102,7 +102,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
         if (task.deadline == null || task.isDone) continue;
-        final d = task.deadline!;
+        final d = task.deadline!.toLocal();
         if (d.year == now.year && d.month == now.month && d.day == now.day) {
           final isBelajar = folder.name.toLowerCase().contains('belajar') || task.title.toLowerCase().contains('belajar');
           if (isBelajar) {
@@ -353,7 +353,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   else
                     ...agendaList.map((item) {
                       final taskTime = item.task.deadline != null 
-                          ? DateFormat('HH:mm').format(item.task.deadline!) 
+                          ? DateFormat('HH:mm').format(item.task.deadline!.toLocal()) 
                           : '--:--';
                       
                       Color priorityColor = Colors.green;

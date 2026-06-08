@@ -26,7 +26,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
-  int _deadlineIndex = 0;
   bool _hasUnread = false;
 
   @override
@@ -130,18 +129,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
             if (visibleDeadlines.isNotEmpty)
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: DeadlineCard(
-                    folderName:
-                        visibleDeadlines[_deadlineIndex % visibleDeadlines.length].folderName,
-                    task: visibleDeadlines[_deadlineIndex % visibleDeadlines.length].task,
-                    onDone: () {
-                      final item =
-                          visibleDeadlines[_deadlineIndex % visibleDeadlines.length];
-                      provider.markTaskDoneById(item.task.id);
-                    },
-                  ),
+                child: Column(
+                  children: visibleDeadlines.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: DeadlineCard(
+                        folderName: item.folderName,
+                        task: item.task,
+                        onDone: () {
+                          provider.markTaskDoneById(item.task.id);
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
               )
             else

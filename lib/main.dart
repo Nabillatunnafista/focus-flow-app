@@ -17,6 +17,7 @@ import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/local_profile_service.dart';
 import 'services/notification_service.dart';
 import 'services/task_service.dart';
 
@@ -30,6 +31,7 @@ void main() async {
   ApiClient.instance.init();
   await NotificationService.instance.init();
   await NotificationService.instance.requestPermissions();
+  await LocalProfileService.instance.load();
   runApp(const FocusFlowApp());
 }
 
@@ -42,6 +44,7 @@ class FocusFlowApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => TaskService()),
+        ChangeNotifierProvider.value(value: LocalProfileService.instance),
       ],
       child: MaterialApp(
         title: AppStrings.appName,

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/local_profile_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -152,8 +153,21 @@ class _AvatarSectionState extends State<_AvatarSection> {
   bool _uploading = false;
   final _picker = ImagePicker();
 
+  @override
+  void initState() {
+    super.initState();
+    // Load foto yang sudah disimpan sebelumnya
+    final savedPath = LocalProfileService.instance.avatarPath;
+    if (savedPath != null) {
+      final f = File(savedPath);
+      if (f.existsSync()) _localImage = f;
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context); // tutup bottom sheet
+
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -163,40 +177,35 @@ class _AvatarSectionState extends State<_AvatarSection> {
       );
       if (picked == null) return;
 
-      final file = File(picked.path);
-      setState(() {
-        _localImage = file;
-        _uploading = true;
-      });
+      if (!mounted) return;
+      setState(() => _uploading = true);
 
-      final auth = context.read<AuthService>();
-      final err = await auth.uploadAvatar(picked);
+      // Simpan path foto ke SharedPreferences (lokal)
+      await LocalProfileService.instance.saveAvatarPath(picked.path);
 
       if (!mounted) return;
-      setState(() => _uploading = false);
+      setState(() {
+        _localImage = File(picked.path);
+        _uploading = false;
+      });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
-            err != null ? err : 'Foto profil berhasil diperbarui!',
+            'Foto profil berhasil diperbarui!',
             style: GoogleFonts.poppins(),
           ),
-          backgroundColor: err != null ? AppColors.error : Colors.green,
+          backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(16),
         ),
       );
-
-      if (err != null) {
-        // Rollback preview jika upload gagal
-        setState(() => _localImage = null);
-      }
     } catch (e) {
       debugPrint('ERROR PICK IMAGE: $e');
       if (!mounted) return;
       setState(() => _uploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(
             'Gagal memilih gambar: $e',
@@ -263,9 +272,10 @@ class _AvatarSectionState extends State<_AvatarSection> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-    final name = auth.displayName;
+    final name = LocalProfileService.instance.displayName ?? auth.displayName;
     final initials = name.trim().split(' ').take(2).map((w) => w[0].toUpperCase()).join();
-    final avatarUrl = auth.currentUser?.avatarUrl;
+    // Avatar lokal diutamakan, tidak perlu avatarUrl dari backend
+    final String? avatarUrl = null; // disabled — pakai lokal saja
 
     return Center(
       child: Stack(
@@ -437,7 +447,7 @@ class _ProfileTabState extends State<_ProfileTab> {
   void initState() {
     super.initState();
     final auth = context.read<AuthService>();
-    _originalName = auth.displayName;
+    _originalName = LocalProfileService.instance.displayName ?? auth.displayName;
     _nameCtrl = TextEditingController(text: _originalName);
     _nameCtrl.addListener(
       () => setState(() => _changed = _nameCtrl.text.trim() != _originalName),
@@ -454,25 +464,10 @@ class _ProfileTabState extends State<_ProfileTab> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final auth = context.read<AuthService>();
-    final err = await auth.updateDisplayName(_nameCtrl.text.trim());
-
-    if (!mounted) return;
-
-    if (err != null) {
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(err, style: GoogleFonts.poppins()),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    } else {
+    try {
+      await LocalProfileService.instance.saveDisplayName(_nameCtrl.text.trim());
       _originalName = _nameCtrl.text.trim();
+      if (!mounted) return;
       setState(() {
         _saving = false;
         _changed = false;
@@ -482,6 +477,19 @@ class _ProfileTabState extends State<_ProfileTab> {
           content:
               Text('Profil berhasil diperbarui', style: GoogleFonts.poppins()),
           backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan nama: $e', style: GoogleFonts.poppins()),
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

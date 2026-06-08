@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../models/task_model.dart';
 import '../../services/task_service.dart';
+import '../home/widgets/edit_task_screen.dart';
 
 class TaskListScreen extends StatefulWidget {
   /// When [standalone] is true, shows a back button (used as a standalone route).
@@ -26,10 +27,10 @@ class _TaskListScreenState extends State<TaskListScreen> {
   Widget build(BuildContext context) {
     return Consumer<TaskService>(
       builder: (context, provider, _) {
-        final allTasks = <({TaskModel task, String folderName})>[];
+        final allTasks = <({TaskModel task, String folderName, String folderId})>[];
         for (final folder in provider.folders) {
           for (final task in folder.tasks) {
-            allTasks.add((task: task, folderName: folder.name));
+            allTasks.add((task: task, folderName: folder.name, folderId: folder.id));
           }
         }
 
@@ -136,8 +137,9 @@ class _TaskListScreenState extends State<TaskListScreen> {
                                 return _TaskListTile(
                                   task: item.task,
                                   folderName: item.folderName,
+                                  folderId: item.folderId,
                                   onToggle: () =>
-                                      provider.toggleTask('', item.task.id),
+                                      provider.toggleTask(item.folderId, item.task.id),
                                   onDelete: () async {
                                     final confirm = await showDialog<bool>(
                                       context: context,
@@ -160,7 +162,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                                       ),
                                     );
                                     if (confirm == true) {
-                                      await provider.deleteTask(item.task.id);
+                                      await provider.deleteTask(item.task.id, folderId: item.folderId);
                                     }
                                   },
                                 );
@@ -220,12 +222,14 @@ class _TabButton extends StatelessWidget {
 class _TaskListTile extends StatelessWidget {
   final TaskModel task;
   final String folderName;
+  final String folderId;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
 
   const _TaskListTile({
     required this.task,
     required this.folderName,
+    required this.folderId,
     required this.onToggle,
     required this.onDelete,
   });
@@ -233,7 +237,7 @@ class _TaskListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final deadlineStr = task.deadline != null
-        ? '${DateFormat('HH.mm').format(task.deadline!)} - ${DateFormat('d MMMM yyyy', 'id_ID').format(task.deadline!)}'
+        ? '${DateFormat('HH.mm').format(task.deadline!.toLocal())} - ${DateFormat('d MMMM yyyy', 'id_ID').format(task.deadline!.toLocal())}'
         : '';
 
     return Container(
@@ -296,6 +300,26 @@ class _TaskListTile extends StatelessWidget {
                   size: 20,
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.purple, size: 20),
+              tooltip: 'Edit tugas',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditTaskScreen(
+                      currentFolderId: folderId,
+                      task: task,
+                    ),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+              tooltip: 'Hapus tugas',
+              onPressed: onDelete,
             ),
           ],
         ),
