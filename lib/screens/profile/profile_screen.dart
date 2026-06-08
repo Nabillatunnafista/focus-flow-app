@@ -23,303 +23,218 @@ class ProfileScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: const Color(0xFFEDE9F6),
-          body: Stack(
-            children: [
-              // ── Purple wave background ──────────────────────
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: MediaQuery.of(context).size.height * 0.45,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.3),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(40),
-                      topRight: Radius.circular(40),
+          body: SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  const SizedBox(height: 40),
+
+                  // ── Area Avatar / Foto Profil ────────────────────────
+                  Center(
+                    child: Container(
+                      width: 104,
+                      height: 104,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: user?.avatarUrl != null
+                            ? Image.network(
+                                user!.avatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _DefaultAvatar(name: displayName),
+                              )
+                            : _DefaultAvatar(name: displayName),
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              SafeArea(
-                bottom: false,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                    // ── Avatar ──────────────────────────────
-                    Center(
-                      child: Stack(
+                  // ── Identitas User (Nama & Email) ────────────────────
+                  Text(
+                    displayName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  if (email.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppColors.textGrey,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  // ── Kartu Menu Opsi Navigasi ─────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.04),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
                         children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary
-                                      .withOpacity(0.15),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
+                          _MenuItem(
+                            icon: Icons.edit_note_rounded,
+                            label: 'Edit Profil',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const EditProfileScreen(),
                                 ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: user?.avatarUrl != null
-                                  ? Image.network(
-                                      user!.avatarUrl!,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _DefaultAvatar(name: displayName),
-                                    )
-                                  : _DefaultAvatar(name: displayName),
-                            ),
+                              );
+                            },
+                          ),
+                          _MenuItem(
+                            icon: Icons.help_outline_rounded,
+                            label: 'Bantuan & Umpan Balik',
+                            onTap: () {},
+                          ),
+                          _MenuItem(
+                            icon: Icons.people_alt_outlined,
+                            label: 'Ikuti Kami',
+                            onTap: () {},
+                          ),
+                          _MenuItem(
+                            icon: Icons.info_outline_rounded,
+                            label: 'Tentang',
+                            onTap: () {},
+                            showDivider: false,
                           ),
                         ],
                       ),
                     ),
+                  ),
 
-                    const SizedBox(height: 12),
+                  const SizedBox(height: 24),
 
-                    // ── Name & Email ────────────────────────
-                    Text(
-                      displayName,
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    if (email.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        email,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: AppColors.textGrey,
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 20),
-
-                    // ── Menu Card ───────────────────────────
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.06),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4),
+                  // ── Tombol Keluar / Logout Minimalis Merah ──────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: InkWell(
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Premium banner
-                            Container(
-                              margin: const EdgeInsets.fromLTRB(
-                                  12, 12, 12, 0),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade100,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.workspace_premium_rounded,
-                                      color: Colors.orange,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Akun Premium',
-                                          style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                            color: Colors.orange.shade800,
-                                          ),
-                                        ),
-                                        Text(
-                                          'nikmati tampilan lebih ..',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 11,
-                                            color: Colors.orange.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                          color: AppColors.primary,
-                                          width: 1),
-                                      borderRadius:
-                                          BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'Tingkatkan Sekarang',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            title: Text(
+                              'Keluar Akun',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
                               ),
                             ),
-
-                            const SizedBox(height: 8),
-
-                            // Menu items
-                            _MenuItem(
-                              icon: Icons.edit_note_rounded,
-                              label: 'Edit Profil',
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const EditProfileScreen(),
-                                  ),
-                                );
-                              },
-                            ),
-                            _MenuItem(
-                              icon: Icons.help_outline_rounded,
-                              label: 'Bantuan & Umpan Balik',
-                              onTap: () {},
-                            ),
-                            _MenuItem(
-                              icon: Icons.people_alt_outlined,
-                              label: 'Ikuti Kami',
-                              onTap: () {},
-                            ),
-                            _MenuItem(
-                              icon: Icons.info_outline_rounded,
-                              label: 'Tentang',
-                              onTap: () {},
-                              showDivider: false,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ── Logout Button ───────────────────────
-                    Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20),
-                      child: GestureDetector(
-                        onTap: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: Text(
-                                'Keluar',
-                                style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.w700),
+                            content: Text(
+                              'Apakah kamu yakin ingin keluar dari aplikasi FocusFlow?',
+                              style: GoogleFonts.poppins(
+                                color: AppColors.textDark,
+                                fontSize: 14,
                               ),
-                              content: Text(
-                                'Yakin ingin keluar dari akun?',
-                                style: GoogleFonts.poppins(),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, false),
-                                  child: Text('Batal',
-                                      style: GoogleFonts.poppins()),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.pop(context, true),
-                                  child: Text(
-                                    'Keluar',
-                                    style: GoogleFonts.poppins(
-                                        color: AppColors.error),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text(
+                                  'Batal',
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.textGrey,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
-                            ),
-                          );
-
-                          if (confirm == true) {
-                            await auth.logout();
-                            if (context.mounted) {
-                              Navigator.of(context)
-                                  .pushReplacementNamed(AppRoutes.login);
-                            }
-                          }
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.secondary,
-                                AppColors.primary,
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(
+                                  'Keluar',
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          child: Center(
-                            child: Text(
-                              'Keluar',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
+                        );
+
+                        if (confirm == true) {
+                          await auth.logout();
+                          if (context.mounted) {
+                            Navigator.of(context)
+                                .pushReplacementNamed(AppRoutes.login);
+                          }
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.error.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.logout_rounded,
+                                color: AppColors.error,
+                                size: 18,
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Keluar Akun',
+                                style: GoogleFonts.poppins(
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -327,7 +242,7 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// ─── DEFAULT AVATAR ──────────────────────────────────────────
+// ─── DEFAULT AVATAR (INISIAL NAMA) ───────────────────────────
 class _DefaultAvatar extends StatelessWidget {
   final String name;
 
@@ -340,12 +255,12 @@ class _DefaultAvatar extends StatelessWidget {
         : 'U';
 
     return Container(
-      color: AppColors.secondary.withOpacity(0.3),
+      color: AppColors.secondary.withOpacity(0.25),
       child: Center(
         child: Text(
           initials,
           style: GoogleFonts.poppins(
-            fontSize: 28,
+            fontSize: 30,
             fontWeight: FontWeight.w700,
             color: AppColors.primary,
           ),
@@ -355,7 +270,7 @@ class _DefaultAvatar extends StatelessWidget {
   }
 }
 
-// ─── MENU ITEM ───────────────────────────────────────────────
+// ─── MENU ITEM CARD COMPONENT ────────────────────────────────
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -375,20 +290,19 @@ class _MenuItem extends StatelessWidget {
       children: [
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.secondary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: AppColors.secondary, size: 18),
+                  child: Icon(icon, color: AppColors.secondary, size: 20),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -413,8 +327,8 @@ class _MenuItem extends StatelessWidget {
         if (showDivider)
           Divider(
             height: 1,
-            indent: 16,
-            endIndent: 16,
+            indent: 20,
+            endIndent: 20,
             color: Colors.grey.shade100,
           ),
       ],

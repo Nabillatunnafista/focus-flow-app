@@ -156,6 +156,7 @@ class TaskService extends ChangeNotifier {
     await _markTaskDone(taskId: taskId);
   }
 
+  // ── TAMBAHAN FIKS: MENGUBAH FUNGSI HAPUS MENJADI PUBLIK & INTEGRASI REMINDER ──
   Future<void> deleteTask(String taskId, {String? folderId}) async {
     final found = _findTask(folderId: folderId, taskId: taskId) ??
         _findTask(taskId: taskId);
@@ -172,6 +173,9 @@ class TaskService extends ChangeNotifier {
       await prefs.remove('reminder_offset_$taskId');
       
       await _dio.delete(ApiEndpoints.deleteTask.replaceAll(':id', taskId));
+      
+      // Ambil data dashboard terbaru dari backend Go setelah berhasil dihapus
+      await loadDashboard();
     } on DioException catch (e) {
       if (removed != null && found != null) {
         _folders[found.folderIndex].tasks.insert(found.taskIndex, removed);
@@ -189,6 +193,64 @@ class TaskService extends ChangeNotifier {
     }
   }
 
+  // ── TAMBAHAN FIKS: FUNGSI UPDATE INTEGRASI FORM EDIT_TASK_SCREEN (PATCH API) ──
+  Future<void> updateTaskComplete({
+    required String taskId,
+    required String title,
+    required DateTime? deadline,
+    required String priority,
+    required bool isDone,
+    required String folderId,
+  }) async {
+    try {
+      final formattedDeadline = deadline?.toIso8601String();
+
+      // Eksekusi request PATCH ke endpoint backend Go kamu
+      await _dio.patch(
+        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+        data: {
+          'title': title,
+          'name': title,
+          'deadline': formattedDeadline,
+          'priority': _normalizePriority(priority),
+          'is_done': isDone,
+          'matkul_id': folderId,
+        },
+      );
+
+      // Konfigurasi ulang notifikasi pengingat lokal jika tenggat berubah
+      final lookup = _findTask(taskId: taskId);
+      if (lookup != null) {
+        final folder = _folders[lookup.folderIndex];
+        final prefs = await SharedPreferences.getInstance();
+        final offset = prefs.getInt('reminder_offset_$taskId');
+
+        if (deadline != null && offset != null && !isDone) {
+          await NotificationService.instance.scheduleTaskReminder(
+            id: taskId,
+            title: title,
+            folderName: folder.name,
+            deadline: deadline,
+            offsetMinutes: offset,
+          );
+        } else {
+          await NotificationService.instance.cancelTaskReminder(taskId);
+        }
+      }
+
+      // Muat ulang dashboard secara menyeluruh agar Beranda & Kalender langsung ter-update
+      await loadDashboard();
+    } on DioException catch (e) {
+      _error = _parseError(e);
+      notifyListeners();
+      rethrow;
+    } catch (e) {
+      _error = 'Gagal perbarui data tugas: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> updateTask({
     required String taskId,
     required String title,
@@ -198,25 +260,22 @@ class TaskService extends ChangeNotifier {
   }) async {
     try {
       final lookup = _findTask(taskId: taskId);
-final isDone = lookup?.task.isDone ?? false;
+      final isDone = lookup?.task.isDone ?? false;
 
-final resp = await _dio.patch(
-  ApiEndpoints.updateTask.replaceAll(':id', taskId),
-  data: {
-    // required by Go backend (and compatibility keys)
-    'is_done': isDone,
-    'isDone': isDone,
-    'completed': isDone ? 1 : 0,
-    'status': isDone ? 'done' : 'pending',
-
-    // existing fields
-    'name': title,
-    'title': title,
-    if (deadline != null) 'deadline': deadline.toIso8601String(),
-    if (priority != null && priority.isNotEmpty)
-      'priority': _normalizePriority(priority),
-  },
-);
+      final resp = await _dio.patch(
+        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+        data: {
+          'is_done': isDone,
+          'isDone': isDone,
+          'completed': isDone ? 1 : 0,
+          'status': isDone ? 'done' : 'pending',
+          'name': title,
+          'title': title,
+          if (deadline != null) 'deadline': deadline.toIso8601String(),
+          if (priority != null && priority.isNotEmpty)
+            'priority': _normalizePriority(priority),
+        },
+      );
 
       final prefs = await SharedPreferences.getInstance();
       if (reminderOffsetMinutes != null) {
@@ -244,7 +303,6 @@ final resp = await _dio.patch(
 
       final status = resp.statusCode ?? 0;
       if (status == 200 || status == 201 || status == 204) {
-        // if API returned updated object, apply it; otherwise reload
         try {
           final data = resp.data;
           final map =
@@ -284,7 +342,6 @@ final resp = await _dio.patch(
 
     final folder = _folders[folderIndex];
 
-    // Hapus tugas-tugas di dalamnya di backend & cancel reminder
     for (final task in folder.tasks) {
       try {
         await NotificationService.instance.cancelTaskReminder(task.id);
@@ -296,7 +353,6 @@ final resp = await _dio.patch(
       }
     }
 
-    // Simpan ke list folder yang didelete
     final prefs = await SharedPreferences.getInstance();
     final deletedFolders = prefs.getStringList('deleted_folders') ?? [];
     if (!deletedFolders.contains(folderId)) {
@@ -337,14 +393,13 @@ final resp = await _dio.patch(
           ),
         );
       }
-    } catch (_) {
-      // Keep empty list; tasks can still be shown in fallback folder.
-    }
+    } catch (_) {}
   }
 
+  // ── FIKS UTAMA: Membersihkan tugas & Menambahkan filter Set pelacak ID agar data tidak dobel ──
   Future<void> _fetchTasks() async {
-    for (final folder in _folders) {
-      folder.tasks.clear();
+    for (var i = 0; i < _folders.length; i++) {
+      _folders[i].tasks.clear();
     }
 
     final resp = await _dio.get(ApiEndpoints.listTasks);
@@ -353,12 +408,17 @@ final resp = await _dio.patch(
     final prefs = await SharedPreferences.getInstance();
     final deletedFolders = prefs.getStringList('deleted_folders') ?? [];
 
+    final Set<String> trackedTaskIds = <String>{};
+
     for (final item in listData) {
       final json = _asMap(item);
       if (json.isEmpty) continue;
 
       var task = TaskModel.fromJson(json);
       if (task.id.isEmpty || task.title.isEmpty) continue;
+
+      if (trackedTaskIds.contains(task.id)) continue;
+      trackedTaskIds.add(task.id);
 
       final folderId = _readString(
         json,
@@ -369,7 +429,6 @@ final resp = await _dio.patch(
         continue;
       }
 
-      // Baca pilihan reminder lokal dari shared preferences
       final offset = prefs.getInt('reminder_offset_${task.id}');
       if (offset != null) {
         task = task.copyWith(reminderOffsetMinutes: offset);
@@ -400,11 +459,16 @@ final resp = await _dio.patch(
 
       target ??= uncategorized ??=
           FolderModel(id: 'uncategorized', name: 'Belum Dikelompokkan');
-      target.tasks.add(task);
+      
+      if (!target.tasks.any((t) => t.id == task.id)) {
+        target.tasks.add(task);
+      }
     }
 
     if (uncategorized != null && uncategorized.tasks.isNotEmpty) {
-      _folders.add(uncategorized);
+      if (!_folders.any((f) => f.id == 'uncategorized')) {
+        _folders.add(uncategorized);
+      }
     }
 
     notifyListeners();
@@ -504,7 +568,6 @@ final resp = await _dio.patch(
     final resp = await _dio.patch(
       ApiEndpoints.updateTask.replaceAll(':id', taskId),
       data: {
-        // include multiple keys for broader backend compatibility
         'is_done': isDone,
         'isDone': isDone,
         'completed': isDone ? 1 : 0,
@@ -532,7 +595,6 @@ final resp = await _dio.patch(
       }
     }
 
-    // If API returns updated task object, apply it to local model to avoid desync
     try {
       final data = resp.data;
       final map =
@@ -540,7 +602,6 @@ final resp = await _dio.patch(
       if (map.isNotEmpty) {
         var updated = TaskModel.fromJson(map);
         
-        // Tetap pertahankan reminderOffsetMinutes lokal
         final prefs = await SharedPreferences.getInstance();
         final offset = prefs.getInt('reminder_offset_$taskId');
         if (offset != null) {
@@ -553,9 +614,7 @@ final resp = await _dio.patch(
           notifyListeners();
         }
       }
-    } catch (_) {
-      // ignore parsing errors; optimistically keep local state
-    }
+    } catch (_) {}
   }
 
   _TaskLookup? _findTask({String? folderId, required String taskId}) {

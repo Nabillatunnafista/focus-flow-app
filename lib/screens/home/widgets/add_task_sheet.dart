@@ -38,14 +38,13 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDateTimePickerSheet(
+    // Diubah menjadi Screen sesuai dengan nama fungsi di file baru kita
+    final picked = await showDateTimePickerScreen(
       context,
       initial: _selectedDate,
     );
-    // picked == null berarti user tekan "Hapus" → clear deadline
-    if (picked == null && _selectedDate != null) {
-      setState(() => _selectedDate = null);
-    } else if (picked != null) {
+    
+    if (picked != null) {
       setState(() => _selectedDate = picked);
     }
   }
@@ -181,20 +180,20 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                     icon: Icons.calendar_today_outlined,
                     label: _selectedDate != null
                         ? _formatDeadlineLabel(_selectedDate!)
-                        : 'Date',
+                        : 'Tanggal',
                     onTap: _pickDate,
                     isActive: _selectedDate != null,
                   ),
                   const SizedBox(width: 8),
                   _ActionChip(
                     icon: Icons.attach_file_outlined,
-                    label: 'Attachment',
+                    label: 'Lampiran',
                     onTap: () {},
                   ),
                   const SizedBox(width: 8),
                   _ActionChip(
                     icon: Icons.flag_outlined,
-                    label: _selectedPriority ?? 'Priority',
+                    label: _selectedPriority ?? 'Prioritas',
                     isActive: _selectedPriority != null,
                     onTap: () => _showPriorityPicker(),
                   ),
@@ -203,7 +202,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                     icon: Icons.alarm_outlined,
                     label: _selectedReminderOffset != null
                         ? _formatReminderLabel(_selectedReminderOffset!)
-                        : 'Reminder',
+                        : 'Pengingat',
                     isActive: _selectedReminderOffset != null,
                     onTap: () => _showReminderPicker(),
                   ),
@@ -380,7 +379,7 @@ class _FolderDropdown extends StatelessWidget {
         child: DropdownButton<String>(
           value: selectedFolderId,
           hint: Text(
-            'Pilih Folder',
+            'Pilih Mata Kuliah',
             style: GoogleFonts.poppins(
               color: Colors.white.withOpacity(0.8),
               fontSize: 13,
