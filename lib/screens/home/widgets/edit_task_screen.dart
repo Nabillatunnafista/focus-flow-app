@@ -30,7 +30,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   String? _selectedFolderId;
   DateTime? _selectedDateTime;
   String _selectedPriority = 'low'; // low, medium, high (sesuai backend Go kamu)
-  String _selectedReminder = 'Tidak Ada Pengingat';
+  String _selectedReminder = '1 Jam Sebelum';
 
   @override
   void initState() {
@@ -42,7 +42,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
 
     final offset = widget.task.reminderOffsetMinutes;
     if (offset == null) {
-      _selectedReminder = 'Tidak Ada Pengingat';
+      _selectedReminder = '1 Jam Sebelum';
     } else if (offset == 60) {
       _selectedReminder = '1 Jam Sebelum';
     } else if (offset == 180) {
@@ -52,7 +52,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     } else if (offset == 4320) {
       _selectedReminder = '3 Hari Sebelum';
     } else {
-      _selectedReminder = 'Tidak Ada Pengingat';
+      _selectedReminder = '1 Jam Sebelum';
     }
   }
 
@@ -185,7 +185,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedReminder != 'Tidak Ada Pengingat' && _selectedDateTime == null) {
+    if (_selectedDateTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan pilih deadline terlebih dahulu sebelum mengatur pengingat'),
@@ -209,9 +209,8 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
       case '3 Hari Sebelum':
         offset = 4320;
         break;
-      case 'Tidak Ada Pengingat':
       default:
-        offset = null;
+        offset = 60;
         break;
     }
 
@@ -372,7 +371,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                         ),
-                        items: ['Tidak Ada Pengingat', '1 Jam Sebelum', '3 Jam Sebelum', '1 Hari Sebelum', '3 Hari Sebelum'].map((r) {
+                        items: ['1 Jam Sebelum', '3 Jam Sebelum', '1 Hari Sebelum', '3 Hari Sebelum'].map((r) {
                           return DropdownMenuItem(value: r, child: Text(r));
                         }).toList(),
                         onChanged: (val) => setState(() => _selectedReminder = val!),

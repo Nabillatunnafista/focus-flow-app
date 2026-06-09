@@ -38,6 +38,15 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // ⬇️ TAMBAHKAN KODE INI DI SINI ⬇️
+    applicationVariants.all {
+        outputs.forEach { output ->
+            val baseVariantOutput = output as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            // Silakan ganti "FocusFlow" di bawah ini dengan nama file yang Anda inginkan
+            baseVariantOutput.outputFileName = "FocusFlow-${name}-v${versionName}.apk"
+        }
+    }
 }
 
 flutter {

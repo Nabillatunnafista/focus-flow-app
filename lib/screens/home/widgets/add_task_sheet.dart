@@ -327,7 +327,6 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildReminderOption('Tidak ada', null),
             _buildReminderOption('1 jam sebelum deadline', 60),
             _buildReminderOption('3 jam sebelum deadline', 180),
             _buildReminderOption('1 hari sebelum deadline', 1440),

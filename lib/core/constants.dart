@@ -16,7 +16,7 @@ class AppRoutes {
 class ApiEndpoints {
   ApiEndpoints._();
   static const String baseUrl =
-      'http://focusflow.gedangan.my.id/api'; // Ganti IP sesuai kebutuhan
+      'http://104.214.184.3:8080/api'; // Ganti IP sesuai kebutuhan
 
   // ──── AUTH (Public) ────────────────────────────────────────
   static const String login = '/login';
