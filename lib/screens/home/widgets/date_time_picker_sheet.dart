@@ -41,9 +41,10 @@ class _DateTimePickerScreenState extends State<DateTimePickerScreen> {
     
     if (widget.initial != null) {
       _isEditMode = true;
-      _selectedDate = widget.initial!;
+      final localInitial = widget.initial!.toLocal();
+      _selectedDate = DateTime(localInitial.year, localInitial.month, localInitial.day);
       if (widget.initial!.hour != 0 || widget.initial!.minute != 0) {
-        _selectedTime = TimeOfDay(hour: widget.initial!.hour, minute: widget.initial!.minute);
+        _selectedTime = TimeOfDay(hour: localInitial.hour, minute: localInitial.minute);
       }
     } else {
       _isEditMode = false;
@@ -113,11 +114,11 @@ class _DateTimePickerScreenState extends State<DateTimePickerScreen> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Hapus Tenggat',
+          'Hapus Deadline',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: AppColors.primary),
         ),
         content: Text(
-          'Apakah kamu yakin ingin menghapus pengaturan tanggal dan waktu tenggat ini?',
+          'Apakah kamu yakin ingin menghapus pengaturan tanggal dan waktu deadline ini?',
           style: GoogleFonts.poppins(color: AppColors.textDark, fontSize: 14),
         ),
         actions: [

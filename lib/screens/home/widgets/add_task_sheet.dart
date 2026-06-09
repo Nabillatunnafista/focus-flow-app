@@ -299,7 +299,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan pilih tanggal tenggat terlebih dahulu sebelum mengatur pengingat'),
+          content: Text('Silakan pilih tanggal deadline terlebih dahulu sebelum mengatur pengingat'),
           backgroundColor: AppColors.error,
         ),
       );

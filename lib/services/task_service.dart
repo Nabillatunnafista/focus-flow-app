@@ -78,7 +78,7 @@ class TaskService extends ChangeNotifier {
           'name': title,
           'title': title,
           if (folderId.isNotEmpty) 'matkul_id': folderId,
-          if (deadline != null) 'deadline': deadline.toIso8601String(),
+          if (deadline != null) 'deadline': deadline.toUtc().toIso8601String(),
           if (priority != null && priority.isNotEmpty)
             'priority': _normalizePriority(priority),
         },
@@ -208,18 +208,16 @@ class TaskService extends ChangeNotifier {
     int? reminderOffsetMinutes,
   }) async {
     try {
-      final formattedDeadline = deadline?.toIso8601String();
+      final formattedDeadline = deadline?.toUtc().toIso8601String();
 
-      // Eksekusi request PATCH ke endpoint backend Go kamu
-      await _dio.patch(
-        ApiEndpoints.updateTask.replaceAll(':id', taskId),
+      // Eksekusi request PUT ke endpoint edit backend Go kamu (untuk edit title, deadline, priority)
+      await _dio.put(
+        ApiEndpoints.editTask.replaceAll(':id', taskId),
         data: {
           'title': title,
           'name': title,
           'deadline': formattedDeadline,
           'priority': _normalizePriority(priority),
-          'is_done': isDone,
-          'matkul_id': folderId,
         },
       );
 

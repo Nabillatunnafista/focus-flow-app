@@ -63,7 +63,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   }
 
   String _formatDateTime(DateTime dt) {
-    return DateFormat("EEEE, d MMMM yyyy - HH:mm", "id_ID").format(dt);
+    return DateFormat("EEEE, d MMMM yyyy - HH:mm", "id_ID").format(dt.toLocal());
   }
 
   // ── FIKS TOTAL: Menggunakan Native Picker Kombinasi Date & Time Anti-Error ──
@@ -73,7 +73,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     // 1. Pilih Tanggal
     final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: _selectedDateTime ?? now,
+      initialDate: _selectedDateTime?.toLocal() ?? now,
       firstDate: DateTime(2020),
       lastDate: DateTime(2101),
       locale: const Locale('id', 'ID'),
@@ -98,7 +98,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     // 2. Pilih Jam & Menit
     final TimeOfDay? pickedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDateTime ?? now),
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime?.toLocal() ?? now),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -188,7 +188,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     if (_selectedReminder != 'Tidak Ada' && _selectedDateTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan pilih tenggat terlebih dahulu sebelum mengatur pengingat'),
+          content: Text('Silakan pilih deadline terlebih dahulu sebelum mengatur pengingat'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -295,26 +295,31 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                       ),
                       const SizedBox(height: 18),
 
-                      // ── Dropdown Mata Kuliah ────────────────────────
+                      // ── Mata Kuliah (Read-only karena backend tidak mendukung pemindahan folder) ──
                       _buildFieldLabel('Mata Kuliah'),
-                      DropdownButtonFormField<String>(
-                        value: _selectedFolderId,
-                        style: GoogleFonts.poppins(fontSize: 15, color: AppColors.textDark, fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        items: filteredFolders.map((f) {
-                          return DropdownMenuItem(value: f.id, child: Text(f.name));
-                        }).toList(),
-                        onChanged: (val) => setState(() => _selectedFolderId = val),
+                        child: Text(
+                          taskService.folders.firstWhere(
+                            (f) => f.id == _selectedFolderId,
+                            orElse: () => FolderModel(id: '', name: 'Tugas'),
+                          ).name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 18),
 
                       // ── Date & Time Picker ──────────────────────────
-                      _buildFieldLabel('Tenggat'),
+                      _buildFieldLabel('Deadline'),
                       InkWell(
                         onTap: _pickDateTime,
                         borderRadius: BorderRadius.circular(14),

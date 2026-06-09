@@ -31,6 +31,10 @@ class TaskModel {
       parsedDeadline = DateTime.fromMillisecondsSinceEpoch(rawDeadline);
     }
 
+    if (parsedDeadline != null) {
+      parsedDeadline = parsedDeadline.toLocal();
+    }
+
     final rawDone = json['is_done'] ?? json['isDone'] ?? json['done'];
     bool parsedDone = false;
     if (rawDone is bool) {

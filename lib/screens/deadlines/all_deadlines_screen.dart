@@ -41,7 +41,7 @@ class _AllDeadlinesScreenState extends State<AllDeadlinesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Semua Tenggat',
+          'Semua Deadline',
           style: GoogleFonts.poppins(
             color: AppColors.primary,
             fontWeight: FontWeight.w700,
@@ -74,7 +74,7 @@ class _AllDeadlinesScreenState extends State<AllDeadlinesScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Tidak ada tenggat tugas terdekat',
+                      'Tidak ada deadline tugas terdekat',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,

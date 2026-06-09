@@ -54,6 +54,7 @@ class NotificationService {
               AndroidFlutterLocalNotificationsPlugin>();
       if (androidImplementation != null) {
         await androidImplementation.requestNotificationsPermission();
+        await androidImplementation.requestExactAlarmsPermission();
       }
     } catch (e) {
       debugPrint('Gagal meminta izin notifikasi: $e');

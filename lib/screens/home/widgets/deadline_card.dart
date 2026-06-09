@@ -140,7 +140,7 @@ class _DeadlineCardState extends State<DeadlineCard> {
 
           const SizedBox(height: 6),
 
-          // ── Tanggal + Jam Tenggat ────────────────────────
+          // ── Tanggal + Jam Deadline ────────────────────────
           if (deadlineStr.isNotEmpty)
             Row(
               children: [
@@ -149,7 +149,7 @@ class _DeadlineCardState extends State<DeadlineCard> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Tenggat: $deadlineStr',
+                    'Deadline: $deadlineStr',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppColors.textGrey,

@@ -40,8 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _computeHasNotifications(TaskService provider) {
     final now = DateTime.now();
     for (final folder in provider.folders) {
-      if (folder.name == 'Belum Dikelompokkan') continue;
-
       for (final task in folder.tasks) {
         if (task.deadline == null || task.isDone) continue;
         final diff = task.deadline!.difference(now);
@@ -105,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             SliverToBoxAdapter(
               child: _buildSectionTitle(
-                'Tenggat Terdekat',
+                'Deadline Terdekat',
                 trailing: TextButton(
                   onPressed: () {
                     Navigator.push(

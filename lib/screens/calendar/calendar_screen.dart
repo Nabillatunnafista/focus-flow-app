@@ -20,7 +20,6 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedMonth = DateTime.now();
   DateTime _selectedDay = DateTime.now();
-  String _activeFilter = 'Semua'; // Filter: Semua, Tugas, Belajar
 
   int get _startWeekday => DateTime(_focusedMonth.year, _focusedMonth.month, 1).weekday % 7;
   int get _daysInMonth => DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0).day;
@@ -48,7 +47,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final target = DateTime(_focusedMonth.year, _focusedMonth.month, day);
     final list = <TaskModel>[];
     for (final folder in provider.folders) {
-      if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
         if (task.deadline == null) continue;
         final d = task.deadline!.toLocal();
@@ -60,22 +58,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return list;
   }
 
-  /// Memproses list agenda harian berdasarkan tanggal terpilih dan filter aktif
+  /// Memproses list agenda harian berdasarkan tanggal terpilih
   List<({TaskModel task, String folderName})> _buildFilteredAgenda(TaskService provider) {
     final result = <({TaskModel task, String folderName})>[];
     
     for (final folder in provider.folders) {
-      if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
         if (task.deadline == null) continue;
         final d = task.deadline!.toLocal();
         if (d.year == _selectedDay.year && d.month == _selectedDay.month && d.day == _selectedDay.day) {
-          
-          final isBelajar = folder.name.toLowerCase().contains('belajar') || task.title.toLowerCase().contains('belajar');
-          
-          if (_activeFilter == 'Tugas' && isBelajar) continue;
-          if (_activeFilter == 'Belajar' && !isBelajar) continue;
-
           result.add((task: task, folderName: folder.name));
         }
       }
@@ -94,33 +85,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
   /// Menghitung total ringkasan aktivitas khusus untuk hari ini (Today Summary)
   Map<String, dynamic> _computeTodaySummary(TaskService provider) {
     final now = DateTime.now();
-    int totalTugas = 0;
-    int totalBelajar = 0;
+    int totalDeadline = 0;
+    int totalSelesai = 0;
     DateTime? nearestDeadline;
 
     for (final folder in provider.folders) {
-      if (folder.name == 'Belum Dikelompokkan') continue;
       for (final task in folder.tasks) {
-        if (task.deadline == null || task.isDone) continue;
+        if (task.deadline == null) continue;
         final d = task.deadline!.toLocal();
         if (d.year == now.year && d.month == now.month && d.day == now.day) {
-          final isBelajar = folder.name.toLowerCase().contains('belajar') || task.title.toLowerCase().contains('belajar');
-          if (isBelajar) {
-            totalBelajar++;
+          if (task.isDone) {
+            totalSelesai++;
           } else {
-            totalTugas++;
-          }
-
-          if (nearestDeadline == null || d.isBefore(nearestDeadline)) {
-            nearestDeadline = d;
+            totalDeadline++;
+            if (nearestDeadline == null || d.isBefore(nearestDeadline)) {
+              nearestDeadline = d;
+            }
           }
         }
       }
     }
 
     return {
-      'tugas': totalTugas,
-      'belajar': totalBelajar,
+      'deadline': totalDeadline,
+      'selesai': totalSelesai,
       'nearest': nearestDeadline != null ? DateFormat('HH:mm').format(nearestDeadline) : null,
     };
   }
@@ -263,9 +251,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            _buildSummaryBadge('📌 ${todaySummary['tugas']} Tenggat', Colors.red.shade50),
+                            _buildSummaryBadge('📌 ${todaySummary['deadline']} Deadline', Colors.red.shade50),
                             const SizedBox(width: 8),
-                            _buildSummaryBadge('📚 ${todaySummary['belajar']} Jadwal Belajar', Colors.green.shade50),
+                            _buildSummaryBadge('✅ ${todaySummary['selesai']} Selesai', Colors.green.shade50),
                           ],
                         ),
                         if (todaySummary['nearest'] != null) ...[
@@ -291,46 +279,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
                   const SizedBox(height: 20),
 
-                  // ── Judul Tanggal Terpilih & Filter Aktivitas ──────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        selectedDayLabel,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.primary,
-                        ),
+                  // ── Judul Tanggal Terpilih ──────────────────────────
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      selectedDayLabel,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: AppColors.primary,
                       ),
-                      Row(
-                        children: ['Semua', 'Tugas', 'Belajar'].map((type) {
-                          final isFilterActive = _activeFilter == type;
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: InkWell(
-                              onTap: () => setState(() => _activeFilter = type),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isFilterActive ? AppColors.primary : Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  type,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: isFilterActive ? Colors.white : AppColors.textGrey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
+                    ),
                   ),
 
                   const SizedBox(height: 12),
@@ -345,7 +304,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          'Tidak ada agenda untuk kategori ini',
+                          'Tidak ada deadline pada tanggal ini 🎉',
                           style: GoogleFonts.poppins(color: AppColors.textGrey, fontSize: 13),
                         ),
                       ),
@@ -356,16 +315,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ? DateFormat('HH:mm').format(item.task.deadline!.toLocal()) 
                           : '--:--';
                       
-                      Color priorityColor = Colors.green;
-                      String priorityLabel = 'Prioritas Rendah';
-                      
-                      if (item.task.title.toLowerCase().contains('kewirausahaan') || item.task.title.toLowerCase().contains('pbo')) {
-                        priorityColor = Colors.red;
-                        priorityLabel = 'Prioritas Tinggi';
-                      } else if (item.task.title.toLowerCase().contains('basis data')) {
-                        priorityColor = Colors.amber;
-                        priorityLabel = 'Prioritas Sedang';
+                      // Tentukan warna dan label prioritas dari field priority tugas
+                      Color priorityColor;
+                      String priorityLabel;
+                      switch (item.task.priority?.toLowerCase()) {
+                        case 'high':
+                          priorityColor = Colors.red;
+                          priorityLabel = 'Prioritas Tinggi';
+                          break;
+                        case 'medium':
+                          priorityColor = Colors.amber;
+                          priorityLabel = 'Prioritas Sedang';
+                          break;
+                        default:
+                          priorityColor = Colors.green;
+                          priorityLabel = 'Prioritas Rendah';
                       }
+
+                      final isSelesai = item.task.isDone;
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -381,14 +348,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14,
-                                color: AppColors.primary,
+                                color: isSelesai ? AppColors.textGrey : AppColors.primary,
+                                decoration: isSelesai ? TextDecoration.lineThrough : null,
                               ),
                             ),
                             const SizedBox(width: 14),
                             Container(
                               width: 10,
                               height: 10,
-                              decoration: BoxDecoration(color: priorityColor, shape: BoxShape.circle),
+                              decoration: BoxDecoration(
+                                color: isSelesai ? Colors.green : priorityColor,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -400,21 +371,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     style: GoogleFonts.poppins(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.textDark,
-                                      decoration: item.task.isDone ? TextDecoration.lineThrough : null,
+                                      color: isSelesai ? AppColors.textGrey : AppColors.textDark,
+                                      decoration: isSelesai ? TextDecoration.lineThrough : null,
                                     ),
                                   ),
                                   Text(
-                                    priorityLabel,
-                                    style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textGrey),
+                                    isSelesai ? 'Selesai ✅' : priorityLabel,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      color: isSelesai ? Colors.green : AppColors.textGrey,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             IconButton(
                               icon: Icon(
-                                item.task.isDone ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                                color: item.task.isDone ? Colors.green : AppColors.textGrey.withOpacity(0.5),
+                                isSelesai ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                color: isSelesai ? Colors.green : AppColors.textGrey.withOpacity(0.5),
                               ),
                               onPressed: () => provider.toggleTask(item.folderName, item.task.id),
                             ),
